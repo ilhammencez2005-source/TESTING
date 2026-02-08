@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, CreditCard, X, CheckCircle2, Clock, Calendar, ChevronRight, LockKeyhole, Loader2, History, Zap, Receipt as ReceiptIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, CreditCard, X, CheckCircle2, Clock, Calendar, ChevronRight, LockKeyhole, Loader2, History, Zap, Receipt as ReceiptIcon, Cpu, Link, Link2Off } from 'lucide-react';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { HomeView } from './components/HomeView';
@@ -26,11 +26,42 @@ export default function App() {
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   
+  // Hardware Serial State
+  const [serialPort, setSerialPort] = useState<any>(null);
+  const [isHardwareConnected, setIsHardwareConnected] = useState(false);
+
   const [prebookStation, setPrebookStation] = useState<Station | null>(null);
   const [prebookDuration, setPrebookDuration] = useState<number>(5);
   const [prebookStep, setPrebookStep] = useState<'duration' | 'password' | 'processing'>('duration');
   const [prebookPassword, setPrebookPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+
+  const connectSerial = async () => {
+    try {
+      if (!("serial" in navigator)) {
+        showNotification("Web Serial not supported in this browser.");
+        return;
+      }
+      // @ts-ignore
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 });
+      setSerialPort(port);
+      setIsHardwareConnected(true);
+      showNotification("Arduino Connected! 🛠️");
+    } catch (err) {
+      console.error("Serial Connection Error:", err);
+      showNotification("Failed to connect hardware.");
+    }
+  };
+
+  const sendSerialCommand = async (command: string) => {
+    if (serialPort && serialPort.writable) {
+      const writer = serialPort.writable.getWriter();
+      const data = new TextEncoder().encode(command);
+      await writer.write(data);
+      writer.releaseLock();
+    }
+  };
 
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
@@ -59,7 +90,6 @@ export default function App() {
         setActiveSession(prev => {
           if (!prev) return null;
           
-          // Conditions to end: 1. Battery 100%, 2. Duration reached
           const isFull = prev.chargeLevel >= 100;
           const durationReached = prev.durationLimit !== 'full' && (prev.timeElapsed / 60) >= prev.durationLimit;
           
@@ -70,7 +100,7 @@ export default function App() {
 
           let newCost = prev.cost;
           if (prev.mode === 'fast') {
-            newCost = prev.cost + 0.05; // Simulate cost
+            newCost = prev.cost + 0.05; 
           }
 
           const increment = prev.mode === 'fast' ? 1.5 : 0.5;
@@ -118,18 +148,30 @@ export default function App() {
       timeElapsed: 0,
       isLocked: true 
     });
+    
+    // Initially locked
+    sendSerialCommand('L');
     setView('charging');
   };
 
-  const toggleLock = () => {
+  const toggleLock = async () => {
     if (!activeSession) return;
-    setActiveSession(prev => prev ? ({ ...prev, isLocked: !prev.isLocked }) : null);
-    showNotification(activeSession.isLocked ? "Vehicle Unlocked" : "Vehicle Locked");
+    const nextLockedState = !activeSession.isLocked;
+    
+    // Send physical command to Arduino
+    // 'U' for Unlock, 'L' for Lock
+    await sendSerialCommand(nextLockedState ? 'L' : 'U');
+
+    setActiveSession(prev => prev ? ({ ...prev, isLocked: nextLockedState }) : null);
+    showNotification(nextLockedState ? "Hardware Locked 🔒" : "Hardware Unlocked 🔓");
   };
 
   const endSession = (currentSession = activeSession) => {
     if (!currentSession) return;
     
+    // Ensure unlocked on end
+    sendSerialCommand('U');
+
     const actualCost = currentSession.cost;
     const paid = currentSession.preAuthAmount;
     const refund = Math.max(0, paid - actualCost);
@@ -222,6 +264,7 @@ export default function App() {
                   activeSession={activeSession}
                   toggleLock={toggleLock}
                   endSession={() => endSession(activeSession)}
+                  isHardwareConnected={isHardwareConnected}
                 />
             </div>
           )}
@@ -235,6 +278,36 @@ export default function App() {
                   <h2 className="text-xl font-bold text-gray-900">ILHAMMENCEZ</h2>
                   <p className="text-sm text-gray-500 mb-6">Student ID: 22003814</p>
                   
+                  {/* Hardware Integration Section */}
+                  <div className="w-full mb-6 bg-slate-900 p-5 rounded-2xl text-white">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Cpu size={18} className="text-emerald-400" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Hardware Bridge</h3>
+                      </div>
+                      {isHardwareConnected ? <Link size={16} className="text-emerald-400" /> : <Link2Off size={16} className="text-red-400" />}
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-400 font-medium mb-4 leading-relaxed">
+                      Sync your device with a physical charging dock to enable hardware lock/unlock features.
+                    </p>
+
+                    {!isHardwareConnected ? (
+                      <button 
+                        onClick={connectSerial}
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Cpu size={14} />
+                        CONNECT ARDUINO
+                      </button>
+                    ) : (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400">ACTIVE BRIDGE</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Wallet Balance</p>
                     <div className="flex justify-between items-end">

@@ -1,15 +1,16 @@
 
 import React, { useState } from 'react';
-import { Zap, CheckCircle2, Lock, Unlock, Power, Loader2 } from 'lucide-react';
+import { Zap, CheckCircle2, Lock, Unlock, Power, Loader2, Cpu } from 'lucide-react';
 import { Session } from '../types';
 
 interface ChargingSessionViewProps {
   activeSession: Session | null;
   toggleLock: () => void;
   endSession: () => void;
+  isHardwareConnected: boolean;
 }
 
-export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ activeSession, toggleLock, endSession }) => {
+export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ activeSession, toggleLock, endSession, isHardwareConnected }) => {
   const [isLocking, setIsLocking] = useState(false);
 
   if (!activeSession) return <div className="p-10 text-center text-gray-500">No active session found.</div>;
@@ -18,23 +19,29 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
 
   const handleLockClick = () => {
     setIsLocking(true);
-    // Simulate network delay for better UX
+    // Simulate slight delay to match hardware response time
     setTimeout(() => {
       toggleLock();
       setIsLocking(false);
-    }, 1200);
+    }, 800);
   };
 
   return (
     <div className="w-full max-w-md mx-auto h-full flex flex-col justify-between p-6 animate-fade-in-down pb-8">
       
       {/* Header */}
-      <div className="flex justify-center items-center py-2">
+      <div className="flex justify-center items-center py-2 relative">
          <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-emerald-500 animate-pulse'}`}></div>
             <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                {isCompleted ? "Session Complete" : "Live Session"}
             </span>
+         </div>
+         
+         {/* Hardware Status Tag */}
+         <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all ${isHardwareConnected ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-400'}`}>
+            <Cpu size={12} className={isHardwareConnected ? 'animate-pulse' : ''} />
+            {isHardwareConnected ? 'Synced' : 'Offline'}
          </div>
       </div>
 
@@ -49,11 +56,11 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                   stroke="currentColor" 
                   strokeWidth="16" 
                   fill="transparent" 
-                  strokeDasharray={2 * Math.PI * 130} // Approx circumference
+                  strokeDasharray={2 * Math.PI * 130} 
                   strokeDashoffset={2 * Math.PI * 130 * ((100 - percentage) / 100)} 
                   className={`${isCompleted ? "text-green-500" : activeSession.mode === 'fast' ? "text-yellow-500" : "text-emerald-500"} transition-all duration-700 ease-out`} 
                   strokeLinecap="round" 
-                  style={{ strokeDasharray: '283%', strokeDashoffset: `${283 - (283 * percentage) / 100}%` }} // Adjusted for responsive r=45%
+                  style={{ strokeDasharray: '283%', strokeDashoffset: `${283 - (283 * percentage) / 100}%` }} 
                />
             </svg>
             
@@ -98,23 +105,23 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                disabled={isLocking}
                className={`w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 relative overflow-hidden ${
                   activeSession.isLocked 
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
-                  : 'bg-green-50 text-green-600 hover:bg-green-100 shadow-inner'
+                  ? 'bg-slate-900 text-white hover:bg-black' 
+                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 shadow-inner'
                } ${isLocking ? 'cursor-wait scale-[0.98]' : 'active:scale-95'}`}
             >
                {isLocking && (
-                   <span className="absolute inset-0 bg-white/20 animate-pulse"></span>
+                   <span className="absolute inset-0 bg-white/10 animate-pulse"></span>
                )}
                
                <div className={`transition-transform duration-300 ${isLocking ? 'scale-110' : ''} flex items-center gap-2`}>
                    {isLocking ? (
                      <Loader2 size={18} className="animate-spin" />
                    ) : (
-                     activeSession.isLocked ? <Lock size={18} /> : <Unlock size={18} />
+                     activeSession.isLocked ? <Lock size={18} className="text-red-400" /> : <Unlock size={18} className="text-emerald-500" />
                    )}
                    {isLocking 
-                     ? (activeSession.isLocked ? "Unlocking Vehicle..." : "Locking Vehicle...") 
-                     : (activeSession.isLocked ? "Unlock Vehicle" : "Lock Vehicle")
+                     ? (activeSession.isLocked ? "Unlocking Dock..." : "Locking Dock...") 
+                     : (activeSession.isLocked ? "Unlock Dock (Servo)" : "Lock Dock (Servo)")
                    }
                </div>
             </button>

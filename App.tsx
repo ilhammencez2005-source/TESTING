@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { User, CreditCard, X, CheckCircle2, Clock, Calendar, ChevronRight, LockKeyhole, Loader2, History, Zap, Receipt as ReceiptIcon, Cpu, Link, Link2Off, Code, Copy, Wifi, Radio, Bluetooth, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, X, CheckCircle2, Cpu, Link, Code, Copy, Wifi, Radio, Bluetooth, Globe } from 'lucide-react';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { HomeView } from './components/HomeView';
@@ -8,9 +8,8 @@ import { BookingView } from './components/BookingView';
 import { ChargingSessionView } from './components/ChargingSessionView';
 import { GeminiAssistant } from './components/GeminiAssistant';
 import { STATIONS } from './constants';
-import { Station, Session, UserLocation, ViewState, ChargingMode, ChargingHistoryItem, Receipt } from './types';
+import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt } from './types';
 
-// Updated sketches with LED logic (Red Pin 4, Green Pin 5)
 const ARDUINO_SKETCH = `// WIRED VERSION (USB SERIAL)
 #include <Servo.h>
 
@@ -139,6 +138,11 @@ export default function App() {
   const [isHardwareConnected, setIsHardwareConnected] = useState(false);
   const [stationId, setStationId] = useState('DOCK_001');
 
+  const showNotification = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const connectSerial = async () => {
     try {
       if (!("serial" in navigator)) return showNotification("Web Serial not supported!");
@@ -175,7 +179,6 @@ export default function App() {
     } else if (hardwareMode === 'bluetooth' && bleCharacteristic) {
       await bleCharacteristic.writeValue(new TextEncoder().encode(command));
     } else if (hardwareMode === 'remote') {
-      console.log(`Cloud Push: ${command}`);
       showNotification(`Cloud Signal: ${command === 'U' ? 'Unlocking' : 'Locking'}...`);
     }
   };
@@ -189,11 +192,6 @@ export default function App() {
       },
       () => showNotification("Unable to find location.")
     );
-  };
-
-  const showNotification = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
   };
 
   useEffect(() => {
@@ -210,6 +208,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeSession?.status]);
 
+  const handleSelectStation = (station: Station) => {
+    setSelectedStation(station);
+    setView('booking');
+  };
+
   const startCharging = (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
     if (preAuth > walletBalance) return showNotification("Insufficient balance.");
     setWalletBalance(p => p - preAuth);
@@ -219,7 +222,8 @@ export default function App() {
   };
 
   const toggleLock = async () => {
-    const next = !activeSession?.isLocked;
+    if (!activeSession) return;
+    const next = !activeSession.isLocked;
     await sendCommand(next ? 'L' : 'U');
     setActiveSession(prev => prev ? ({ ...prev, isLocked: next }) : null);
   };
@@ -230,6 +234,7 @@ export default function App() {
     setWalletBalance(p => p + (cur.preAuthAmount - cur.cost));
     setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: "Session ended", totalEnergy: "2.1kWh", mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: cur.preAuthAmount - cur.cost });
     setActiveSession(null);
+    setSelectedStation(null);
     setView('home');
   };
 
@@ -248,14 +253,37 @@ export default function App() {
         )}
 
         <main className="flex-1 overflow-y-auto relative w-full">
-          {view === 'home' && <HomeView userLocation={userLocation} handleLocateMe={handleLocateMe} stations={STATIONS} onBookStation={setSelectedStation} onPrebook={() => {}} />}
-          {view === 'booking' || selectedStation && view === 'home' ? <BookingView selectedStation={selectedStation!} onBack={() => setSelectedStation(null)} onStartCharging={startCharging} /> : null}
-          {view === 'charging' && <ChargingSessionView activeSession={activeSession} toggleLock={toggleLock} endSession={() => endSession()} isHardwareConnected={isHardwareConnected || hardwareMode === 'remote'} />}
+          {view === 'home' && (
+            <HomeView 
+              userLocation={userLocation} 
+              handleLocateMe={handleLocateMe} 
+              stations={STATIONS} 
+              onBookStation={handleSelectStation} 
+              onPrebook={(s) => { setSelectedStation(s); setView('booking'); }} 
+            />
+          )}
+          
+          {view === 'booking' && selectedStation && (
+            <BookingView 
+              selectedStation={selectedStation} 
+              onBack={() => { setView('home'); setSelectedStation(null); }} 
+              onStartCharging={startCharging} 
+            />
+          )}
+
+          {view === 'charging' && (
+            <ChargingSessionView 
+              activeSession={activeSession} 
+              toggleLock={toggleLock} 
+              endSession={() => endSession()} 
+              isHardwareConnected={isHardwareConnected || hardwareMode === 'remote'} 
+            />
+          )}
           
           {view === 'profile' && (
             <div className="p-8 flex flex-col items-center max-w-md mx-auto animate-slide-up pb-20">
               <div className="w-full bg-white p-6 rounded-3xl shadow-sm border border-gray-200 mt-4">
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center text-center">
                   <div className="bg-emerald-100 p-6 rounded-full mb-4 border-4 border-emerald-50"><User size={48} className="text-emerald-600"/></div>
                   <h2 className="text-xl font-black uppercase tracking-tight">Ilhammencez</h2>
                   <p className="text-[10px] font-black text-gray-400 mb-6 uppercase">ID: 22003814 • ETP G17</p>
@@ -267,33 +295,33 @@ export default function App() {
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-100">Smart Bridge</h3>
                       </div>
                       <div className="flex bg-slate-800 p-1 rounded-lg">
-                        <button onClick={() => setHardwareMode('serial')} className={`p-1.5 rounded transition-all ${hardwareMode === 'serial' ? 'bg-emerald-500 text-white' : 'text-slate-500'}`}><Link size={14} /></button>
-                        <button onClick={() => setHardwareMode('bluetooth')} className={`p-1.5 rounded transition-all ${hardwareMode === 'bluetooth' ? 'bg-blue-500 text-white' : 'text-slate-500'}`}><Bluetooth size={14} /></button>
-                        <button onClick={() => setHardwareMode('remote')} className={`p-1.5 rounded transition-all ${hardwareMode === 'remote' ? 'bg-orange-500 text-white' : 'text-slate-500'}`}><Wifi size={14} /></button>
+                        <button onClick={() => { setHardwareMode('serial'); setIsHardwareConnected(!!serialPort); }} className={`p-1.5 rounded transition-all ${hardwareMode === 'serial' ? 'bg-emerald-500 text-white' : 'text-slate-500'}`}><Link size={14} /></button>
+                        <button onClick={() => { setHardwareMode('bluetooth'); setIsHardwareConnected(!!bleCharacteristic); }} className={`p-1.5 rounded transition-all ${hardwareMode === 'bluetooth' ? 'bg-blue-500 text-white' : 'text-slate-500'}`}><Bluetooth size={14} /></button>
+                        <button onClick={() => { setHardwareMode('remote'); setIsHardwareConnected(true); }} className={`p-1.5 rounded transition-all ${hardwareMode === 'remote' ? 'bg-orange-500 text-white' : 'text-slate-500'}`}><Wifi size={14} /></button>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">
                       {hardwareMode === 'serial' && (
                         <button onClick={connectSerial} className="w-full bg-emerald-500 text-white py-2.5 rounded-xl font-black text-[10px] flex items-center justify-center gap-2">
-                           <Cpu size={14} /> {isHardwareConnected ? 'RE-SYNC USB' : 'PAIR ARDUINO'}
+                           <Cpu size={14} /> {isHardwareConnected && hardwareMode === 'serial' ? 'CONNECTED' : 'PAIR ARDUINO'}
                         </button>
                       )}
                       {hardwareMode === 'bluetooth' && (
                         <button onClick={connectBluetooth} className="w-full bg-blue-500 text-white py-2.5 rounded-xl font-black text-[10px] flex items-center justify-center gap-2">
-                           <Bluetooth size={14} /> {isHardwareConnected ? 'RE-SYNC BLE' : 'PAIR HM-10'}
+                           <Bluetooth size={14} /> {isHardwareConnected && hardwareMode === 'bluetooth' ? 'CONNECTED' : 'PAIR HM-10'}
                         </button>
                       )}
                       {hardwareMode === 'remote' && (
                         <div className="space-y-2">
-                           <input value={stationId} onChange={e => setStationId(e.target.value.toUpperCase())} placeholder="STATION ID" className="bg-slate-800 border-none rounded-xl text-[10px] font-black p-2.5 w-full text-white" />
+                           <input value={stationId} onChange={e => setStationId(e.target.value.toUpperCase())} placeholder="STATION ID" className="bg-slate-800 border-none rounded-xl text-[10px] font-black p-2.5 w-full text-white focus:ring-1 focus:ring-emerald-500" />
                            <div className="bg-orange-900/20 border border-orange-500/20 p-2.5 rounded-xl flex items-center justify-between">
-                              <span className="text-[10px] font-black text-orange-400">REMOTE READY</span>
-                              <Globe size={14} className="text-orange-400 animate-spin-slow" />
+                              <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter">Remote Bridge Active</span>
+                              <Globe size={14} className="text-orange-400 animate-[spin_5s_linear_infinite]" />
                            </div>
                         </div>
                       )}
-                      <button onClick={() => setShowSketchModal(true)} className="w-full bg-slate-800 text-slate-300 py-2 rounded-xl font-black text-[9px] flex items-center justify-center gap-2 border border-slate-700 transition-colors">
+                      <button onClick={() => setShowSketchModal(true)} className="w-full bg-slate-800 text-slate-300 py-2 rounded-xl font-black text-[9px] flex items-center justify-center gap-2 border border-slate-700 hover:bg-slate-700 transition-colors">
                         <Code size={12} /> GET C++ SKETCH
                       </button>
                     </div>
@@ -304,7 +332,7 @@ export default function App() {
                     <span className="text-3xl font-black text-emerald-600 tracking-tighter">RM {walletBalance.toFixed(2)}</span>
                   </div>
 
-                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100 active:scale-95">Top Up Wallet</button>
+                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100 active:scale-95 transition-all">Top Up Wallet</button>
                 </div>
               </div>
             </div>
@@ -316,12 +344,12 @@ export default function App() {
 
         {showSketchModal && (
           <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setShowSketchModal(false)}>
-            <div className="bg-slate-900 text-white w-full max-w-lg rounded-3xl p-6 shadow-2xl relative border border-slate-700" onClick={e => e.stopPropagation()}>
-               <div className="flex justify-between items-center mb-4">
+            <div className="bg-slate-900 text-white w-full max-w-lg rounded-3xl p-6 shadow-2xl relative border border-slate-700 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+               <div className="flex justify-between items-center mb-4 shrink-0">
                   <h3 className="text-sm font-black uppercase tracking-widest">{hardwareMode} Sketch (w/ LEDs)</h3>
-                  <button onClick={() => setShowSketchModal(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
+                  <button onClick={() => setShowSketchModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24} /></button>
                </div>
-               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 relative group max-h-[40vh] overflow-y-auto scrollbar-hide">
+               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 relative group overflow-y-auto scrollbar-hide flex-1">
                   <pre className="text-[10px] font-mono leading-relaxed text-emerald-100/80">
                     {hardwareMode === 'serial' ? ARDUINO_SKETCH : hardwareMode === 'bluetooth' ? BLUETOOTH_SKETCH : ESP32_SKETCH}
                   </pre>
@@ -329,13 +357,13 @@ export default function App() {
                     <Copy size={16} />
                   </button>
                </div>
-               <div className="mt-4 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                  <p className="text-[9px] text-emerald-400 uppercase font-black mb-1">Wiring Instructions:</p>
-                  <p className="text-[9px] text-slate-400 leading-tight">
-                    • Servo Signal: Pin 9 (Arduino) / Pin 18 (ESP32)<br/>
-                    • <span className="text-red-400">Red LED</span>: Pin 4 (+ via 220Ω resistor)<br/>
-                    • <span className="text-emerald-400">Green LED</span>: Pin 5 (+ via 220Ω resistor)<br/>
-                    • Bluetooth RX/TX: HM-10 D2/D3 (SoftwareSerial)
+               <div className="mt-4 bg-slate-800/50 p-3 rounded-xl border border-slate-700 shrink-0">
+                  <p className="text-[9px] text-emerald-400 uppercase font-black mb-1">Hardware Setup:</p>
+                  <p className="text-[9px] text-slate-400 leading-tight font-bold uppercase tracking-tighter">
+                    • Servo Signal: D9 (Arduino) / D18 (ESP32)<br/>
+                    • Red LED: D4 (Locked State)<br/>
+                    • Green LED: D5 (Unlocked State)<br/>
+                    • BT RX/TX: D2/D3 (HM-10 ONLY)
                   </p>
                </div>
             </div>
@@ -348,18 +376,24 @@ export default function App() {
                 <div className="bg-[#D9305C] p-6 rounded-[1.5rem] mb-4">
                   <img src="https://lh3.googleusercontent.com/d/1usUmakfqoX6yrVG_BQucVdmQx4jDpxoO" alt="QR" className="w-full aspect-square object-contain" />
                 </div>
-                <p className="text-sm font-black text-gray-800 uppercase tracking-widest">Scan with MAE / GrabPay</p>
+                <p className="text-sm font-black text-gray-800 uppercase tracking-widest leading-none mb-1">MAE/GrabPay Terminal</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">UTP STUDENT MERCHANT</p>
              </div>
           </div>
         )}
 
         {receipt && (
           <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-             <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden p-8 text-center animate-fade-in-down">
-                <CheckCircle2 size={48} className="mx-auto text-emerald-600 mb-4" />
-                <h2 className="text-2xl font-black tracking-tighter text-gray-900 uppercase">Success</h2>
-                <p className="text-4xl font-black text-gray-900 my-4 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
-                <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Close Receipt</button>
+             <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden p-8 text-center animate-fade-in-down">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600">
+                   <CheckCircle2 size={36} />
+                </div>
+                <h2 className="text-xl font-black tracking-tighter text-gray-900 uppercase">Transaction Success</h2>
+                <div className="my-6">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Final Charge</p>
+                   <p className="text-5xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
+                </div>
+                <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors shadow-lg">Close Receipt</button>
              </div>
           </div>
         )}

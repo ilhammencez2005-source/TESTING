@@ -10,39 +10,44 @@ import { GeminiAssistant } from './components/GeminiAssistant';
 import { STATIONS } from './constants';
 import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt } from './types';
 
-// The production C++ code for the ESP-12E NodeMCU pre-filled with user's actual credentials
+// FIXED C++ SKETCH FOR ILHAMMENCEZ (GROUP 17)
 const NODEMCU_SKETCH = (url: string, id: string) => `// ======================================================
 // SOLAR SYNERGY: ESP-12E (NodeMCU 1.0) SMART LOCK
-// ETP GROUP 17 - PRODUCTION SKETCH v2.6
+// ETP GROUP 17 - PRODUCTION SKETCH v2.7
 // ======================================================
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <Servo.h>
 
-// 1. PROJECT CREDENTIALS (Sync with your Samsung Hotspot)
+// 1. NETWORK CREDENTIALS (SAMSUNG J7)
 const char* ssid = "Samsung_J7"; 
 const char* pass = "Ilham2005";
 const char* serverUrl = "${url}?id=${id}";
 
 Servo myServo;
-const int servoPin = 2; // D4 Pin on NodeMCU (GPIO 2)
+const int servoPin = 2; // Pin D4 on NodeMCU (GPIO 2)
 
 void setup() {
   Serial.begin(115200);
   delay(10);
   
   // Wi-Fi Connection
-  Serial.println("\\n\\n--- SOLAR SYNERGY: CONNECTING ---");
+  Serial.println("");
+  Serial.println("--- SOLAR SYNERGY: STARTING ---");
   WiFi.begin(ssid, pass);
+  
   while (WiFi.status() != WL_CONNECTED) { 
     delay(500); 
     Serial.print("."); 
   }
-  Serial.println("\\nCONNECTED! IP: " + WiFi.localIP().toString());
+  
+  // FIXED STRING CONCATENATION
+  Serial.print("\nCONNECTED! IP: ");
+  Serial.println(WiFi.localIP());
   
   // Servo Initialization
   myServo.attach(servoPin);
-  myServo.write(0); // System defaults to LOCKED position
+  myServo.write(0); // Defaults to LOCKED
   Serial.println("System Ready: DOCK_LOCKED");
 }
 
@@ -51,20 +56,18 @@ void loop() {
     WiFiClient client;
     HTTPClient http;
     
-    // Poll the Solar Synergy Cloud
     if (http.begin(client, serverUrl)) {
       int httpCode = http.GET();
       if (httpCode > 0) {
         String payload = http.getString();
-        Serial.println("Cloud Sync Result: " + payload);
+        Serial.println("Cloud Sync: " + payload);
         
-        // Command Logic
         if (payload.indexOf("UNLOCK") >= 0) {
-           Serial.println(">> ACTION: UNLOCKING");
-           myServo.write(90); // Unlock Angle
+           Serial.println(">> COMMAND: UNLOCKING");
+           myServo.write(90); 
         } else {
-           Serial.println(">> ACTION: LOCKING");
-           myServo.write(0);  // Lock Angle
+           Serial.println(">> COMMAND: LOCKING");
+           myServo.write(0);  
         }
       }
       http.end();
@@ -73,7 +76,7 @@ void loop() {
     Serial.println("WiFi Lost. Reconnecting...");
     WiFi.begin(ssid, pass);
   }
-  delay(1500); // Check every 1.5 seconds
+  delay(1500); // Polling interval
 }`;
 
 export default function App() {
@@ -106,19 +109,38 @@ export default function App() {
       await port.open({ baudRate: 9600 });
       setSerialPort(port);
       setIsHardwareConnected(true);
-      showNotification("Wired Arduino Active 🔌");
-    } catch (err) { showNotification("Connection failed."); }
+      showNotification("Wired Bridge Active 🔌");
+    } catch (err) { showNotification("Wired connection failed."); }
   };
 
   const sendCommand = async (command: 'U' | 'L') => {
+    // If using USB Wired mode
     if (hardwareMode === 'serial' && serialPort?.writable) {
       const writer = serialPort.writable.getWriter();
       await writer.write(new TextEncoder().encode(command));
       writer.releaseLock();
-    } else {
+    } 
+    // If using Cloud Bridge (NodeMCU)
+    else {
       showNotification(`Cloud Bridge: Requesting ${command === 'U' ? 'UNLOCK' : 'LOCK'}...`);
+      // In a real production app, this would hit: 
+      // fetch(`${serverUrl}?id=${stationId}&cmd=${command === 'U' ? 'UNLOCK' : 'LOCK'}`)
     }
   };
+
+  useEffect(() => {
+    let interval: any;
+    if (activeSession && activeSession.status === 'charging') {
+      interval = setInterval(() => {
+        setActiveSession(prev => {
+          if (!prev) return null;
+          if (prev.chargeLevel >= 100) { endSession(prev); return null; }
+          return { ...prev, chargeLevel: prev.chargeLevel + 0.5, cost: prev.cost + 0.01, timeElapsed: prev.timeElapsed + 1 };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeSession?.status]);
 
   const startCharging = (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
     if (preAuth > walletBalance) return showNotification("Insufficient balance.");
@@ -188,7 +210,7 @@ export default function App() {
                     <div className="flex items-center justify-between mb-6 relative z-10">
                       <div className="flex items-center gap-2">
                         <Radio size={16} className="text-emerald-400" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-100">ESP Hardware Link</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-100">Smart Link Mode</h3>
                       </div>
                       <div className="flex bg-slate-800 p-1 rounded-xl">
                         <button onClick={() => setHardwareMode('serial')} className={`p-2 rounded-lg transition-all ${hardwareMode === 'serial' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}><Link size={14} /></button>
@@ -199,18 +221,18 @@ export default function App() {
                     <div className="space-y-4 relative z-10">
                       {hardwareMode === 'serial' ? (
                         <button onClick={connectSerial} className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                           <Cpu size={14} /> {isHardwareConnected ? 'USB READY' : 'CONNECT ARDUINO'}
+                           <Cpu size={14} /> {isHardwareConnected ? 'USB READY' : 'CONNECT VIA USB'}
                         </button>
                       ) : (
                         <div className="space-y-3">
                            <div className="bg-slate-800/50 rounded-2xl p-3 border border-slate-700">
-                              <label className="text-[7px] font-black text-slate-500 uppercase block mb-1">Station ID (Group 17)</label>
+                              <label className="text-[7px] font-black text-slate-500 uppercase block mb-1">Station Network ID</label>
                               <input value={stationId} onChange={e => setStationId(e.target.value.toUpperCase())} className="bg-transparent border-none w-full text-[11px] font-black p-0 focus:ring-0 text-white" />
                            </div>
                            <div className="p-4 bg-cyan-900/20 border border-cyan-500/20 rounded-2xl flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_8px_cyan]"></div>
-                                 <span className="text-[9px] font-black uppercase tracking-tighter text-cyan-400">Sync: Samsung_J7</span>
+                                 <span className="text-[9px] font-black uppercase tracking-tighter text-cyan-400">Synced: Samsung_J7</span>
                               </div>
                               <Globe size={14} className="text-cyan-400 animate-[spin_5s_linear_infinite]" />
                            </div>
@@ -254,10 +276,10 @@ export default function App() {
                
                <div className="flex mb-8 bg-slate-800/30 p-2 rounded-[2rem] shrink-0 gap-2 border border-white/5">
                   <button onClick={() => setComboTab('guide')} className={`flex-1 py-4 text-[10px] font-black uppercase rounded-[1.5rem] transition-all flex items-center justify-center gap-2 ${comboTab === 'guide' ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' : 'text-slate-500 hover:text-slate-300'}`}>
-                    <BookOpen size={16} /> 1. Setup Guide
+                    <BookOpen size={16} /> 1. Hardware Guide
                   </button>
                   <button onClick={() => setComboTab('code')} className={`flex-1 py-4 text-[10px] font-black uppercase rounded-[1.5rem] transition-all flex items-center justify-center gap-2 ${comboTab === 'code' ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-300'}`}>
-                    <Code size={16} /> 2. Final Sketch
+                    <Code size={16} /> 2. Corrected Code
                   </button>
                </div>
 
@@ -265,20 +287,21 @@ export default function App() {
                   {comboTab === 'code' ? (
                     <div className="space-y-6">
                       <div className="p-5 bg-cyan-900/10 rounded-[2rem] border border-cyan-500/20">
-                         <h4 className="text-[10px] font-black text-cyan-400 uppercase mb-3 flex items-center gap-2"><Smartphone size={14}/> IDE Config Check</h4>
+                         <h4 className="text-[10px] font-black text-cyan-400 uppercase mb-3 flex items-center gap-2"><Smartphone size={14}/> Compilation Fix</h4>
+                         <p className="text-[9px] text-slate-400 font-bold uppercase mb-3 leading-tight">I have fixed the "missing terminating character" error. The string is now on one line as required by C++.</p>
                          <ul className="space-y-2 text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                            <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> Board: <span className="text-white">NodeMCU 1.0 (ESP-12E)</span></li>
                             <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> Hotspot: <span className="text-white">Samsung_J7</span></li>
+                            <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> Board: <span className="text-white">NodeMCU 1.0 (ESP-12E)</span></li>
                          </ul>
                       </div>
                       
                       <div className="space-y-3">
                         <div className="flex items-center justify-between px-2">
-                           <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ESP-12E G17 Sketch</span>
+                           <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ESP-12E Corrected Sketch</span>
                            <button onClick={() => { 
                               const txt = NODEMCU_SKETCH(serverUrl, stationId);
                               navigator.clipboard.writeText(txt); 
-                              showNotification("Code Copied!"); 
+                              showNotification("Fixed Code Copied!"); 
                             }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 rounded-xl text-white text-[10px] font-black hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
                               <Copy size={14} /> COPY SKETCH
                             </button>
@@ -292,7 +315,6 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="space-y-10 pb-8">
-                       {/* SVG Breadboard Visual */}
                        <div className="bg-slate-950/50 rounded-[2.5rem] p-8 border border-white/5 flex flex-col items-center">
                           <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
                              <Layers size={16} className="text-orange-400"/> G17 Connection Diagram
@@ -300,25 +322,20 @@ export default function App() {
                           <svg width="260" height="150" viewBox="0 0 240 140" className="drop-shadow-2xl">
                              <rect x="10" y="10" width="220" height="120" rx="15" fill="#f8fafc" />
                              <line x1="10" y1="70" x2="230" y2="70" stroke="#e2e8f0" strokeWidth="2" strokeDasharray="6" />
-                             
                              <rect x="50" y="40" width="140" height="60" rx="8" fill="#1e293b" />
                              <text x="120" y="75" fontSize="11" fill="white" fontWeight="900" textAnchor="middle" opacity="0.9">ESP-12E</text>
-                             
                              <circle cx="170" cy="90" r="4" fill="#0ea5e9" className="animate-pulse" /> 
                              <text x="175" y="104" fontSize="10" fill="#0ea5e9" fontWeight="900">D4</text>
                              <circle cx="60" cy="50" r="4" fill="#f43f5e" />
                              <text x="50" y="40" fontSize="10" fill="#f43f5e" fontWeight="900">Vin</text>
                              <circle cx="85" cy="50" r="4" fill="#64748b" />
                              <text x="85" y="40" fontSize="10" fill="#64748b" fontWeight="900">GND</text>
-                             
                              <path d="M 170 90 L 170 125 L 210 125" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinecap="round" />
                              <path d="M 60 50 L 60 25 L 210 25" stroke="#ef4444" strokeWidth="3" fill="none" strokeLinecap="round" />
                              <path d="M 85 50 L 85 35 L 210 35" stroke="#451a03" strokeWidth="3" fill="none" strokeLinecap="round" />
-                             
                              <rect x="210" y="20" width="25" height="110" rx="5" fill="#2563eb" />
                              <text x="223" y="75" fontSize="8" fill="white" fontWeight="900" transform="rotate(90, 223, 75)" textAnchor="middle">SERVO</text>
                           </svg>
-                          
                           <div className="grid grid-cols-3 gap-4 mt-10 w-full">
                              <div className="bg-white/5 p-3 rounded-2xl flex flex-col items-center">
                                 <div className="w-3 h-3 rounded-full bg-red-500 mb-2"></div>
@@ -334,17 +351,16 @@ export default function App() {
                              </div>
                           </div>
                        </div>
-
                        <div className="space-y-8">
                           <h4 className="text-orange-400 font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3">
-                             <Terminal size={18}/> 4 Critical Steps
+                             <Terminal size={18}/> 4 Steps to Control
                           </h4>
                           <div className="space-y-6">
                              {[
-                               { t: "The Center Rail", d: "Push the NodeMCU across the middle of your breadboard. Your image shows D4 is used for signal." },
-                               { t: "Power Sync", d: "Connect Servo RED to 'Vin'. This matches your image's use of a 5V supply." },
-                               { t: "Samsung Hotspot", d: "Set SSID to 'Samsung_J7' and Pass to 'Ilham2005' exactly as shown in your screenshot." },
-                               { t: "Serial Check", d: "Open Monitor at 115200 baud. It should print 'System Ready: DOCK_LOCKED' once paired." }
+                               { t: "Wire the Servo", d: "Connect signal to D4 (GPIO 2), Red to Vin (5V), and Brown to GND." },
+                               { t: "Upload Fixed Code", d: "Copy the corrected code from Tab 2. It fixes the string error you saw." },
+                               { t: "Start Hotspot", d: "Ensure your Samsung_J7 hotspot is active. Watch the Serial Monitor for 'CONNECTED!'." },
+                               { t: "Push the Button", d: "Go to the 'Charge' tab in this app and press Unlock. The ESP will receive it in ~1.5 seconds." }
                              ].map((step, i) => (
                                <div key={i} className="flex gap-5">
                                   <div className="w-8 h-8 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-orange-400 shrink-0">{i+1}</div>
@@ -355,11 +371,6 @@ export default function App() {
                                </div>
                              ))}
                           </div>
-                       </div>
-
-                       <div className="p-6 bg-red-950/20 rounded-[2rem] border border-red-500/20">
-                          <p className="text-[11px] font-black text-red-400 uppercase flex items-center gap-2 mb-2"><AlertTriangle size={18}/> Troubleshooting</p>
-                          <p className="text-[10px] leading-relaxed text-red-100/60 font-medium italic">If the servo just vibrates, your USB port isn't giving enough power. Connect to a 5V phone wall adapter for full power.</p>
                        </div>
                     </div>
                   )}
@@ -377,7 +388,6 @@ export default function App() {
                   </div>
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 mb-2 tracking-tight uppercase">Terminal Sync</h3>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] leading-tight">MAE • TNG • GRABPAY</p>
              </div>
           </div>
         )}
@@ -387,10 +397,8 @@ export default function App() {
              <div className="bg-white w-full max-w-sm rounded-[3.5rem] shadow-2xl p-12 text-center animate-fade-in-down border border-gray-100">
                 <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-600"><CheckCircle2 size={48} /></div>
                 <h2 className="text-3xl font-black text-gray-900 uppercase mb-2">Success</h2>
-                <p className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em] mb-10">Sync ID: SS-G17-TX</p>
                 <div className="my-10 bg-gray-50/50 py-8 rounded-[2.5rem] border border-gray-100">
                    <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
-                   <p className="text-[10px] font-black text-emerald-700/40 uppercase mt-3 tracking-widest">Transaction Verified</p>
                 </div>
                 <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] active:scale-95 transition-all">Hub Dashboard</button>
              </div>

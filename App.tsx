@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, X, CheckCircle2, Cpu, Link, Code, Copy, Wifi, Radio, Bluetooth, Globe, Battery, Layers, Monitor, Server, AlertTriangle, BookOpen, Settings, Info, ArrowRight, Zap as ZapIcon, Terminal, Smartphone, WifiOff, ShieldAlert } from 'lucide-react';
+import { User, X, CheckCircle2, Cpu, Link, Code, Copy, Wifi, Radio, Bluetooth, Globe, Battery, Layers, Monitor, Server, AlertTriangle, BookOpen, Settings, Info, ArrowRight, Zap as ZapIcon, Terminal, Smartphone, WifiOff, ShieldAlert, Search } from 'lucide-react';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { HomeView } from './components/HomeView';
@@ -10,56 +10,70 @@ import { GeminiAssistant } from './components/GeminiAssistant';
 import { STATIONS } from './constants';
 import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt } from './types';
 
-// PRODUCTION SKETCH FOR ILHAMMENCEZ (ETP G17)
+// BULLETPROOF SKETCH FOR ILHAMMENCEZ (ETP G17)
 const NODEMCU_SKETCH = (url: string, id: string) => `// ======================================================
 // SOLAR SYNERGY: ESP-12E (NodeMCU 1.0) SMART LOCK
-// ETP GROUP 17 - PRODUCTION SKETCH v2.8
+// ETP GROUP 17 - BULLETPROOF WIFI v2.9
 // ======================================================
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <Servo.h>
 
-// 1. NETWORK CREDENTIALS (SAMSUNG J7)
+// 1. NETWORK CREDENTIALS
 const char* ssid = "Samsung_J7"; 
 const char* pass = "Ilham2005";
 const char* serverUrl = "${url}?id=${id}";
 
 Servo myServo;
-const int servoPin = 2; // Pin D4 on NodeMCU (GPIO 2)
+const int servoPin = 2; // Pin D4 (GPIO 2)
 
 void setup() {
-  // Use 115200 for NodeMCU
   Serial.begin(115200);
-  delay(100);
+  delay(500);
   
-  Serial.println("\n\n--- SOLAR SYNERGY SYSTEM INITIALIZING ---");
-  Serial.println("Target SSID: " + String(ssid));
+  Serial.println("\n\n--- [HARDWARE RESET] ---");
   
-  // Wi-Fi Connection logic
-  WiFi.mode(WIFI_STA); // Ensure Station mode
+  // CLEAR WIFI MEMORY (IMPORTANT FOR STUCK CONNECTIONS)
+  WiFi.persistent(false);
+  WiFi.disconnect(true);
+  delay(1000);
+  
+  // SCAN FOR NETWORKS (DIAGNOSTIC)
+  Serial.println("Scanning for available networks...");
+  int n = WiFi.scanNetworks();
+  bool found = false;
+  for (int i = 0; i < n; ++i) {
+    if(WiFi.SSID(i) == ssid) found = true;
+    Serial.print("Found: "); Serial.print(WiFi.SSID(i));
+    Serial.print(" ("); Serial.print(WiFi.RSSI(i)); Serial.println(" dBm)");
+  }
+  
+  if(!found) {
+    Serial.println("\n!!! WARNING: Samsung_J7 NOT FOUND !!!");
+    Serial.println("Check: Hotspot must be 2.4GHz & NOT HIDDEN.");
+  }
+
+  // START CONNECTION
+  Serial.println("\nAttempting link to: " + String(ssid));
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
   
-  Serial.print("Connecting");
-  int timeout = 0;
-  while (WiFi.status() != WL_CONNECTED && timeout < 40) { 
-    delay(500); 
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) { 
+    delay(1000); 
     Serial.print("."); 
-    timeout++;
+    attempts++;
   }
   
   if(WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[SUCCESS] Connected to Hotspot!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
+    Serial.println("\n[SYNC SUCCESSFUL]");
+    Serial.print("IP: "); Serial.println(WiFi.localIP());
+    myServo.attach(servoPin);
+    myServo.write(0); // LOCKED
   } else {
-    Serial.println("\n[ERROR] Connection Failed!");
-    Serial.println("Check: 1. Is Hotspot 2.4GHz? 2. Is Password Correct?");
+    Serial.println("\n[SYNC FAILED]");
+    Serial.println("Error Code: " + String(WiFi.status()));
   }
-  
-  // Servo Initialization
-  myServo.attach(servoPin);
-  myServo.write(0); // LOCKED
-  Serial.println("Actuator Ready: SYSTEM_LOCKED");
 }
 
 void loop() {
@@ -71,26 +85,22 @@ void loop() {
       int httpCode = http.GET();
       if (httpCode > 0) {
         String payload = http.getString();
-        Serial.println("Cloud Sync Result: " + payload);
+        Serial.println("Cloud Command: " + payload);
         
         if (payload.indexOf("UNLOCK") >= 0) {
-           Serial.println(">> ACTION: UNLOCKING DOCK");
            myServo.write(90); 
         } else {
-           Serial.println(">> ACTION: LOCKING DOCK");
            myServo.write(0);  
         }
-      } else {
-        Serial.printf("[HTTP] GET failed, error: %s\n", http.errorToString(httpCode).c_str());
       }
       http.end();
     }
   } else {
-    Serial.println("Wi-Fi Lost. Attempting reconnect...");
+    Serial.println("Link Lost. Retrying...");
     WiFi.begin(ssid, pass);
     delay(5000);
   }
-  delay(1500); // Check every 1.5s
+  delay(1500); 
 }`;
 
 export default function App() {
@@ -276,7 +286,7 @@ export default function App() {
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-cyan-500/20 rounded-2xl"><Cpu size={28} className="text-cyan-400" /></div>
                     <div>
-                      <h3 className="text-lg font-black uppercase tracking-tighter">ESP-12E Production Sync</h3>
+                      <h3 className="text-lg font-black uppercase tracking-tighter">ESP-12E Link Control</h3>
                       <p className="text-[9px] font-black text-slate-500 tracking-[0.3em] uppercase">ETP 2024 • Ilhammencez G17</p>
                     </div>
                   </div>
@@ -291,7 +301,7 @@ export default function App() {
                     <Code size={14} /> Code
                   </button>
                   <button onClick={() => setComboTab('fix')} className={`flex-1 py-3.5 text-[10px] font-black uppercase rounded-[1.5rem] transition-all flex items-center justify-center gap-2 ${comboTab === 'fix' ? 'bg-red-500 text-white shadow-xl' : 'text-slate-500 hover:text-slate-300'}`}>
-                    <WifiOff size={14} /> Fix Wi-Fi
+                    <WifiOff size={14} /> Link Fix
                   </button>
                </div>
 
@@ -299,7 +309,8 @@ export default function App() {
                   {comboTab === 'code' && (
                     <div className="space-y-6">
                       <div className="p-5 bg-cyan-900/10 rounded-[2rem] border border-cyan-500/20">
-                         <h4 className="text-[10px] font-black text-cyan-400 uppercase mb-3 flex items-center gap-2"><Smartphone size={14}/> Corrected & escaped sketch</h4>
+                         <h4 className="text-[10px] font-black text-cyan-400 uppercase mb-3 flex items-center gap-2"><Smartphone size={14}/> Bulletproof Sketch v2.9</h4>
+                         <p className="text-[9px] text-slate-400 font-bold uppercase mb-3 leading-tight italic">"I've added code to scan for your phone and clear Wi-Fi memory to fix connection loops."</p>
                          <ul className="space-y-2 text-[10px] text-slate-400 font-bold uppercase tracking-tight">
                             <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> Hotspot: <span className="text-white">Samsung_J7</span></li>
                             <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> Board: <span className="text-white">NodeMCU 1.0 (ESP-12E)</span></li>
@@ -308,11 +319,11 @@ export default function App() {
                       
                       <div className="space-y-3">
                         <div className="flex items-center justify-between px-2">
-                           <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ESP-12E Verified Sketch</span>
+                           <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ESP-12E Production Sketch</span>
                            <button onClick={() => { 
                               const txt = NODEMCU_SKETCH(serverUrl, stationId);
                               navigator.clipboard.writeText(txt); 
-                              showNotification("Corrected Code Copied!"); 
+                              showNotification("Bulletproof Code Copied!"); 
                             }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 rounded-xl text-white text-[10px] font-black hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
                               <Copy size={14} /> COPY SKETCH
                             </button>
@@ -330,7 +341,7 @@ export default function App() {
                     <div className="space-y-10 pb-8">
                        <div className="bg-slate-950/50 rounded-[2.5rem] p-8 border border-white/5 flex flex-col items-center">
                           <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
-                             <Layers size={16} className="text-orange-400"/> G17 Wiring
+                             <Layers size={16} className="text-orange-400"/> G17 Pinout
                           </p>
                           <svg width="260" height="150" viewBox="0 0 240 140" className="drop-shadow-2xl">
                              <rect x="10" y="10" width="220" height="120" rx="15" fill="#f8fafc" />
@@ -351,16 +362,16 @@ export default function App() {
                           </svg>
                           <div className="grid grid-cols-3 gap-4 mt-10 w-full">
                              <div className="bg-white/5 p-3 rounded-2xl flex flex-col items-center">
-                                <div className="w-3 h-3 rounded-full bg-red-500 mb-2"></div>
-                                <span className="text-[8px] font-black uppercase text-slate-400">RED: Vin</span>
+                                <div className="w-3 h-3 rounded-full bg-red-500 mb-2 shadow-[0_0_8px_red]"></div>
+                                <span className="text-[8px] font-black uppercase text-slate-400">Vin (5V)</span>
                              </div>
                              <div className="bg-white/5 p-3 rounded-2xl flex flex-col items-center">
-                                <div className="w-3 h-3 rounded-full bg-amber-900 mb-2"></div>
-                                <span className="text-[8px] font-black uppercase text-slate-400">BRN: GND</span>
+                                <div className="w-3 h-3 rounded-full bg-slate-600 mb-2"></div>
+                                <span className="text-[8px] font-black uppercase text-slate-400">GND (Common)</span>
                              </div>
                              <div className="bg-white/5 p-3 rounded-2xl flex flex-col items-center">
-                                <div className="w-3 h-3 rounded-full bg-yellow-400 mb-2"></div>
-                                <span className="text-[8px] font-black uppercase text-slate-400">YEL: D4</span>
+                                <div className="w-3 h-3 rounded-full bg-yellow-400 mb-2 shadow-[0_0_8px_yellow]"></div>
+                                <span className="text-[8px] font-black uppercase text-slate-400">D4 (Signal)</span>
                              </div>
                           </div>
                        </div>
@@ -371,15 +382,16 @@ export default function App() {
                     <div className="space-y-8 pb-10">
                        <div className="p-6 bg-red-950/20 rounded-[2.5rem] border border-red-500/30">
                           <h4 className="text-red-400 font-black text-xs uppercase tracking-widest flex items-center gap-3 mb-6">
-                             <ShieldAlert size={18}/> Samsung Hotspot Fix
+                             <ShieldAlert size={18}/> Hard Wi-Fi Troubleshooter
                           </h4>
                           
                           <div className="space-y-8">
                              {[
-                               { t: "Change Band to 2.4GHz", d: "ESP-12E cannot see 5GHz networks. Go to Hotspot Settings > Configure > Band > Select '2.4 GHz'." },
-                               { t: "Set WPA2 Security", d: "ESP8266 often fails with WPA3. Change Security to 'WPA2-Personal' in the hotspot configuration." },
-                               { t: "Check Baud Rate", d: "Ensure your Serial Monitor is set to 115200. If it's set to 9600, you will see no text or '???' symbols." },
-                               { t: "Disable Auto-Shutdown", d: "Phones turn off hotspot if no one connects. Keep the 'Configure' screen open while the ESP is connecting." }
+                               { t: "The 2.4GHz Rule", d: "Open Hotspot Settings > Configure > Band. Must be '2.4 GHz'. If it says '5 GHz' or 'Auto', the ESP will NEVER see it." },
+                               { t: "Hidden Network", d: "Ensure 'Hidden Network' is OFF. If it's on, the ESP cannot find the SSID during the scan." },
+                               { t: "Disable family share", d: "Turn off 'Auto Hotspot' or 'Family Sharing'. These features add extra security that blocks simple Wi-Fi chips." },
+                               { t: "Check characters", d: "Is there a space at the end of your SSID? 'Samsung_J7 ' is different from 'Samsung_J7'. Re-type it carefully." },
+                               { t: "Power Sag", d: "Connecting to Wi-Fi uses a lot of power. If your servo twitches when it tries to connect, the ESP will crash. Unplug the servo momentarily to test Wi-Fi." }
                              ].map((step, i) => (
                                <div key={i} className="flex gap-4">
                                   <div className="w-6 h-6 rounded-lg bg-red-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</div>
@@ -393,8 +405,8 @@ export default function App() {
                        </div>
                        
                        <div className="p-6 bg-slate-800/40 rounded-[2.5rem] border border-white/5">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Diagnostic Check</p>
-                          <p className="text-[10px] text-slate-300 leading-relaxed italic">"If the Serial Monitor says 'Connecting...', it means the ESP is trying but the phone is ignoring it. Switching to 2.4GHz fixes this 99% of the time."</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Search size={14}/> Diagnostic Helper</p>
+                          <p className="text-[10px] text-slate-300 leading-relaxed">"Watch the Serial Monitor (115200 Baud). If it shows a list of Wi-Fi names but NOT yours, your phone is either on 5GHz or is Hidden."</p>
                        </div>
                     </div>
                   )}

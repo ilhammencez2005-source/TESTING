@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, CheckCircle2, Wifi, Search, Activity, RefreshCw, Zap as ZapIcon, Info, Settings2, AlertTriangle, ArrowRight, WifiOff, ShieldAlert, Globe, Link, Copy, ExternalLink } from 'lucide-react';
+import { User, CheckCircle2, Wifi, Search, Activity, RefreshCw, Zap as ZapIcon, Info, Settings2, AlertTriangle, ArrowRight, WifiOff, ShieldAlert, Globe, Link, Copy, ExternalLink, Cpu, Code2, Power, BatteryCharging } from 'lucide-react';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { HomeView } from './components/HomeView';
@@ -19,13 +19,13 @@ export default function App() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null); 
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [showArduinoCode, setShowArduinoCode] = useState(false);
   
   // HARDWARE CONFIGURATION
   const [isHardwareOnline, setIsHardwareOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   
-  // Use relative path for internal API
   const apiPath = '/api/status';
   const fullUrl = `${window.location.protocol}//${window.location.host}${apiPath}`;
   const [stationId, setStationId] = useState('ETP-G17-HUB');
@@ -41,41 +41,21 @@ export default function App() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 7000);
-      
-      const res = await fetch(apiPath, { 
-        method: 'GET',
-        cache: 'no-store',
-        mode: 'no-cors', // Helps avoid CORS issues in some mixed environments
-        signal: controller.signal 
-      });
-      
-      // Note: with no-cors, we might get an opaque response. 
-      // For status checking, a standard fetch is usually better.
-      const standardRes = await fetch(apiPath, { cache: 'no-store' });
+      const res = await fetch(apiPath, { cache: 'no-store', signal: controller.signal });
       clearTimeout(timeoutId);
       
-      if (standardRes.status === 404) {
-        throw new Error("Bridge route not found (404). Deployment might still be propagating.");
-      }
-      
-      if (!standardRes.ok) throw new Error(`Server Error: ${standardRes.status}`);
-
-      const text = await standardRes.text();
+      if (res.status === 404) throw new Error("Bridge 404");
+      const text = await res.text();
       const trimmedText = text.trim().toUpperCase();
 
-      // If text looks like HTML, the API didn't fire (SPA fallback)
       if (trimmedText.startsWith('<!DOCTYPE')) {
         setIsHardwareOnline(false);
-        setBridgeError("The server returned HTML. Deployment issue detected.");
-      } else if (trimmedText === 'LOCK' || trimmedText === 'UNLOCK') {
-        setIsHardwareOnline(true);
       } else {
         setIsHardwareOnline(true);
       }
     } catch (e: any) {
-      console.error("Bridge failure:", e);
       setIsHardwareOnline(false);
-      setBridgeError(e.message || "Cloud Bridge Offline");
+      setBridgeError(e.message || "Offline");
     } finally {
       setSyncing(false);
     }
@@ -95,9 +75,7 @@ export default function App() {
          body: JSON.stringify({ id: stationId, command })
        });
        if (res.ok) {
-         showNotification(`Cloud: Hub ${command}ed`);
-       } else {
-         showNotification(`Sync Error: ${res.status}`);
+         showNotification(`Cloud: ${command} Command Sent`);
        }
      } catch (e) {
        showNotification("Cloud Bridge Timeout");
@@ -143,6 +121,33 @@ export default function App() {
     setView('home');
   };
 
+  const arduinoSnippet = `#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h> // REQUIRED
+#include <Servo.h>
+
+void loop() {
+  WiFiClientSecure client;
+  client.setInsecure(); // ALLOW HTTPS
+  HTTPClient http;
+  
+  if (http.begin(client, "${fullUrl}")) {
+    int code = http.GET();
+    if (code == 200) {
+      String payload = http.getString();
+      payload.trim();
+      
+      if (payload.indexOf("UNLOCK") >= 0) {
+        myServo.write(180);
+      } else if (payload.indexOf("LOCK") >= 0) {
+        myServo.write(0);
+      }
+    }
+    http.end();
+  }
+  delay(3000);
+}`;
+
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 text-gray-900 font-sans overflow-hidden">
         {notification && (
@@ -182,60 +187,51 @@ export default function App() {
                     </div>
                   </div>
                   <h2 className="text-2xl font-black tracking-tighter text-gray-900">Ilhammencez</h2>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • ID: 22003814</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • Group 17</p>
               </div>
 
-              {/* CLOUD BRIDGE CONFIG */}
+              {/* HARDWARE WORKBENCH */}
               <div className="w-full mt-4 bg-slate-900 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden border border-slate-800">
-                <div className="relative z-10 flex flex-col gap-5">
-                   <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Globe size={16} className="text-emerald-400" />
-                        <h3 className="text-white font-black text-xs uppercase tracking-wider">Cloud Link</h3>
-                      </div>
-                      <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${isHardwareOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                        {isHardwareOnline ? 'Sync Active' : 'Offline'}
-                      </div>
-                   </div>
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <Cpu size={16} className="text-emerald-400" />
+                      <h3 className="text-white font-black text-xs uppercase tracking-wider">Workbench</h3>
+                    </div>
+                    <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${isHardwareOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {isHardwareOnline ? 'Hub Connected' : 'Check Serial'}
+                    </div>
+                </div>
 
-                   <div className="space-y-4">
-                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
-                        <p className="text-[8px] font-black text-slate-500 uppercase mb-3 flex items-center gap-2">
-                          <Link size={10} /> ESP8266 Arduino Link
-                        </p>
-                        <div className="flex items-center gap-2 bg-black/40 p-3 rounded-xl border border-white/5">
-                           <code className="flex-1 text-[9px] text-emerald-300 font-mono break-all overflow-hidden whitespace-nowrap overflow-ellipsis">
-                              {fullUrl}
-                           </code>
-                           <button 
-                             onClick={() => {
-                               navigator.clipboard.writeText(fullUrl);
-                               showNotification("URL Copied!");
-                             }}
-                             className="text-white/40 hover:text-white transition-colors"
-                           >
-                             <Copy size={14} />
-                           </button>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                         <div className="flex-1 bg-white/5 rounded-2xl p-4 border border-white/5">
-                            <p className="text-[8px] font-black text-slate-500 uppercase mb-1">State</p>
-                            <p className="text-[10px] font-black text-white uppercase">{isHardwareOnline ? 'Online' : 'Check Logs'}</p>
-                         </div>
-                         <button onClick={checkHardwareStatus} className="bg-emerald-600 px-6 rounded-2xl text-white shadow-lg active:scale-95 transition-all">
-                            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
-                         </button>
-                      </div>
-                   </div>
-                   
-                   {!isHardwareOnline && (
-                     <div className="text-[9px] text-rose-300 font-bold bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 space-y-1">
-                        <p className="uppercase">⚠️ Link Error</p>
-                        <p className="font-medium opacity-80 leading-relaxed">{bridgeError || "Server endpoint could not be reached."}</p>
-                     </div>
-                   )}
+                <div className="space-y-4">
+                  <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-[8px] font-black text-slate-500 uppercase flex items-center gap-2">
+                        <Power size={10} /> Servo Power Check
+                      </p>
+                      <ShieldAlert size={12} className="text-yellow-500" />
+                    </div>
+                    <ul className="text-[9px] text-slate-300 font-bold space-y-2">
+                       <li className="flex items-start gap-2">
+                          <span className="text-emerald-400">1.</span>
+                          <span>Move Red Wire to <b>Vin</b> (5V Power).</span>
+                       </li>
+                       <li className="flex items-start gap-2">
+                          <span className="text-emerald-400">2.</span>
+                          <span>Use <b>WiFiClientSecure</b> for HTTPS URLs.</span>
+                       </li>
+                       <li className="flex items-start gap-2">
+                          <span className="text-emerald-400">3.</span>
+                          <span>Signal Pin: <b>D4 (GPIO 2)</b>.</span>
+                       </li>
+                    </ul>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowArduinoCode(true)}
+                    className="w-full bg-emerald-600/10 text-emerald-400 py-4 rounded-2xl border border-emerald-600/20 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600/20 transition-all"
+                  >
+                    <Code2 size={16} /> Get Full Arduino Code
+                  </button>
                 </div>
               </div>
 
@@ -249,27 +245,32 @@ export default function App() {
                  </div>
                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-gray-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-widest shadow-xl">Top Up Wallet</button>
               </div>
-
-              <div className="w-full mt-4 space-y-2">
-                 {[
-                   { i: <Info size={18}/>, t: "ESP8266 Connection Guide" },
-                   { i: <Settings2 size={18}/>, t: "User Preferences" }
-                 ].map((item, i) => (
-                   <button key={i} className="w-full bg-white p-5 rounded-[2rem] border border-gray-100 flex items-center justify-between text-gray-700">
-                      <div className="flex items-center gap-4">
-                        <div className="text-gray-400">{item.i}</div>
-                        <span className="text-xs font-black uppercase tracking-wider">{item.t}</span>
-                      </div>
-                      <ArrowRight size={16} className="text-gray-300" />
-                   </button>
-                 ))}
-              </div>
             </div>
           )}
           {view === 'assistant' && <GeminiAssistant onClose={() => setView('home')} contextData={{ walletBalance, selectedStation }} />}
         </main>
 
         <NavigationBar view={view} setView={setView} hasActiveSession={!!activeSession} showNotification={showNotification} />
+
+        {showArduinoCode && (
+           <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setShowArduinoCode(false)}>
+              <div className="bg-slate-900 w-full max-w-lg rounded-[3rem] p-8 border border-white/10 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                 <div className="flex justify-between items-center mb-6">
+                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">ESP8266 HTTPS Fix</h4>
+                   <button onClick={() => setShowArduinoCode(false)} className="text-slate-500 hover:text-white"><ArrowRight size={20} className="rotate-180" /></button>
+                 </div>
+                 <pre className="flex-1 bg-black/50 p-6 rounded-2xl border border-white/5 overflow-auto text-[10px] text-emerald-300 font-mono leading-relaxed">
+                   {arduinoSnippet}
+                 </pre>
+                 <button 
+                  onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Snippet Copied!"); }}
+                  className="mt-6 w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/20"
+                 >
+                   Copy Code
+                 </button>
+              </div>
+           </div>
+        )}
 
         {showTopUpModal && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-8" onClick={() => setShowTopUpModal(false)}>
@@ -291,12 +292,4 @@ export default function App() {
                 <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-600"><CheckCircle2 size={48} /></div>
                 <h2 className="text-3xl font-black text-gray-900 uppercase mb-2">Success</h2>
                 <div className="my-10 bg-gray-50/50 py-8 rounded-[2.5rem] border border-gray-100">
-                   <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
-                </div>
-                <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em]">Done</button>
-             </div>
-          </div>
-        )}
-    </div>
-  );
-}
+                   <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2

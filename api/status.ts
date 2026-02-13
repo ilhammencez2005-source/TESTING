@@ -31,8 +31,9 @@ export default function handler(req: any, res: any) {
     return res.status(400).json({ error: "Invalid command. Expected LOCK or UNLOCK." });
   }
 
-  // 3. GET Handler: Responds to hardware polls (ESP8266) and UI checks
-  // We return text/plain for easier Arduino string parsing
+  // 3. GET Handler: Strictly returns just the text string
+  // Using end() instead of send() to avoid any potential auto-formatting
   res.setHeader('Content-Type', 'text/plain');
-  return res.status(200).send(currentCommand);
+  res.statusCode = 200;
+  return res.end(currentCommand.trim());
 }

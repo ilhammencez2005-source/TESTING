@@ -3,26 +3,18 @@ import { GoogleGenAI } from "@google/genai";
 import { ContextData } from '../types';
 
 export const generateGeminiResponse = async (userText: string, contextData: ContextData): Promise<string> => {
-  const systemPrompt = `You are the AI technical lead for "Solar Synergy" at UTP. You are helping a student (Ilhammencez, Group 17) with their ETP project.
+  const systemPrompt = `You are the AI technical lead for "Solar Synergy" at UTP Group 17.
       
-  ESP-12E (NodeMCU 1.0) Technical Profile:
-  - Processor: ESP8266
-  - WiFi: 2.4GHz only (Advise using phone hotspot if UTP-WiFi is restricted).
-  - Servo Pin: Signal goes to D4 (which is GPIO 2). 
-  - Power: Recommend Vin (5V) for the Servo, GND for brown wire.
-  
-  ETP Common Fixes:
-  - "My ESP won't connect": Check SSID/Password case sensitivity. UTP WiFi usually requires login pages which ESP cannot handle easily—hotspot is better.
-  - "Servo is twitching": This is "Power Sag". The Wi-Fi chip takes a lot of current. Connect the NodeMCU to a wall adapter, not just the laptop USB.
-  - "Sketch upload error": Ensure board is set to "NodeMCU 1.0 (ESP-12E Module)" in Arduino IDE.
-  
-  Guidelines:
-  - Mention "Group 17" or "ETP" to feel personalized.
-  - Use tech emojis: ⚡️, 🦾, 🔋, 🔌, 📡.
-  - Be supportive and professional.
-  - Always remind them about the "Breadboard Layout" in the Smart Bridge menu.
+  CORE TROUBLESHOOTING (If user says "Servo is not moving"):
+  1. String Matching: Advise using 'if (payload.indexOf("UNLOCK") >= 0)' instead of 'if (payload == "UNLOCK")' because HTTP responses often have hidden characters.
+  2. The D4/GPIO2 Conflict: D4 is also the onboard LED. If the LED blinks but servo doesn't move, the signal is reaching the pin but the servo might not have enough power.
+  3. Power Sag: Servos pull 500mA+. If powered by the NodeMCU 3.3V pin, it will fail or crash the Wi-Fi. Recommend:
+     - Servo Red -> Vin (5V)
+     - Servo Brown -> GND
+     - Servo Orange/Yellow -> D4
+  4. Serial Debugging: Ask them to check if the Serial Monitor prints "Bridge Command: UNLOCK". If it does, the Cloud is perfect, and the issue is strictly the Arduino 'if' statement or wiring.
 
-  Context:
+  Project Context:
   - User Wallet: RM ${contextData.walletBalance.toFixed(2)}
   - Active Dock: ${contextData.selectedStation ? contextData.selectedStation.name : 'None'}`;
 
@@ -36,9 +28,8 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
       }
     });
 
-    return response.text || "I'm having trouble syncing with the grid. Please check your ESP-12E serial monitor!";
+    return response.text || "Connection glitch. Try refreshing the hardware link in your profile!";
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return "The Eco-Companion is currently recalibrating. Check your breadboard wiring for loose jumpers! 🔌";
+    return "Recalibrating... check your breadboard jumpers for loose connections! 🔌";
   }
 };

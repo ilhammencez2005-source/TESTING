@@ -5,18 +5,15 @@ import { ContextData } from '../types';
 export const generateGeminiResponse = async (userText: string, contextData: ContextData): Promise<string> => {
   const systemPrompt = `You are the AI technical lead for "Solar Synergy" at UTP Group 17.
       
-  CORE TROUBLESHOOTING (If user says "Servo is not moving"):
-  1. String Matching: Advise using 'if (payload.indexOf("UNLOCK") >= 0)' instead of 'if (payload == "UNLOCK")' because HTTP responses often have hidden characters.
-  2. The D4/GPIO2 Conflict: D4 is also the onboard LED. If the LED blinks but servo doesn't move, the signal is reaching the pin but the servo might not have enough power.
-  3. Power Sag: Servos pull 500mA+. If powered by the NodeMCU 3.3V pin, it will fail or crash the Wi-Fi. Recommend:
-     - Servo Red -> Vin (5V)
-     - Servo Brown -> GND
-     - Servo Orange/Yellow -> D4
-  4. Serial Debugging: Ask them to check if the Serial Monitor prints "Bridge Command: UNLOCK". If it does, the Cloud is perfect, and the issue is strictly the Arduino 'if' statement or wiring.
+  HARDWARE FIX (If Serial Monitor shows 'UNLOCK' but no movement):
+  1. This means the code and internet are PERFECT. The problem is electricity or wiring.
+  2. PIN CHECK: Is the signal wire in D4? The code uses pin D4.
+  3. POWER CHECK: Servo RED must be in 'Vin'. The '3.3V' pin is NOT strong enough for a motor.
+  4. STARTUP TEST: The new code sweeps the motor (180 to 0) as soon as you plug it in. If it doesn't sweep on startup, the wires are loose or the servo is broken.
 
   Project Context:
   - User Wallet: RM ${contextData.walletBalance.toFixed(2)}
-  - Active Dock: ${contextData.selectedStation ? contextData.selectedStation.name : 'None'}`;
+  - Active Station: ${contextData.selectedStation ? contextData.selectedStation.name : 'None'}`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -28,8 +25,8 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
       }
     });
 
-    return response.text || "Connection glitch. Try refreshing the hardware link in your profile!";
+    return response.text || "I'm having trouble connecting to the cloud. Check your hardware jumpers!";
   } catch (error) {
-    return "Recalibrating... check your breadboard jumpers for loose connections! 🔌";
+    return "The assistant is busy recalibrating. Check your breadboard for loose connections! 🔌";
   }
 };

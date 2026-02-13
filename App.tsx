@@ -24,38 +24,24 @@ export default function App() {
   // HARDWARE CONFIGURATION
   const [isHardwareOnline, setIsHardwareOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [bridgeError, setBridgeError] = useState<string | null>(null);
   
   const apiPath = '/api/status';
-  const fullUrl = `${window.location.protocol}//${window.location.host}${apiPath}`;
+  const fullUrl = `https://solarsynergy-nine.vercel.app/api/status`;
   const [stationId, setStationId] = useState('ETP-G17-HUB');
 
   const showNotification = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 3500);
   };
 
   const checkHardwareStatus = async () => {
     setSyncing(true);
-    setBridgeError(null);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
-      const res = await fetch(apiPath, { cache: 'no-store', signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      if (res.status === 404) throw new Error("Bridge 404");
+      const res = await fetch(apiPath, { cache: 'no-store' });
       const text = await res.text();
-      const trimmedText = text.trim().toUpperCase();
-
-      if (trimmedText.startsWith('<!DOCTYPE')) {
-        setIsHardwareOnline(false);
-      } else {
-        setIsHardwareOnline(true);
-      }
-    } catch (e: any) {
+      setIsHardwareOnline(!text.trim().startsWith('<!DOCTYPE'));
+    } catch (e) {
       setIsHardwareOnline(false);
-      setBridgeError(e.message || "Offline");
     } finally {
       setSyncing(false);
     }
@@ -67,7 +53,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const sendCommand = async (command: 'UNLOCK' | 'LOCK') => {
+  const sendCommand = async (command: 'UNLOCK' | 'LOCK', isAuto = true) => {
      try {
        const res = await fetch(apiPath, {
          method: 'POST',
@@ -75,10 +61,10 @@ export default function App() {
          body: JSON.stringify({ id: stationId, command })
        });
        if (res.ok) {
-         showNotification(`Cloud: ${command} Command Sent`);
+         showNotification(isAuto ? `SYSTEM: AUTOMATIC ${command}` : `MANUAL: ${command} SENT`);
        }
      } catch (e) {
-       showNotification("Cloud Bridge Timeout");
+       showNotification("BRIDGE ERROR: CHECK WIFI");
      }
   };
 
@@ -88,7 +74,11 @@ export default function App() {
       interval = setInterval(() => {
         setActiveSession(prev => {
           if (!prev) return null;
-          if (prev.chargeLevel >= 100) { endSession(prev); return null; }
+          if (prev.chargeLevel >= 100) { 
+            // AUTOMATIC COMPLETION
+            endSession(prev); 
+            return null; 
+          }
           return { ...prev, chargeLevel: prev.chargeLevel + 0.5, cost: prev.cost + 0.01, timeElapsed: prev.timeElapsed + 1 };
         });
       }, 1000);
@@ -97,61 +87,110 @@ export default function App() {
   }, [activeSession?.status]);
 
   const startCharging = (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
-    if (preAuth > walletBalance) return showNotification("Insufficient balance.");
+    if (preAuth > walletBalance) return showNotification("INSUFFICIENT CREDITS");
+    
     setWalletBalance(p => p - preAuth);
-    setActiveSession({ station: selectedStation!, mode, slotId, startTime: new Date(), status: 'charging', chargeLevel: 20, cost: 0, preAuthAmount: preAuth, durationLimit: duration, timeElapsed: 0, isLocked: true });
-    sendCommand('LOCK');
+    setActiveSession({ 
+      station: selectedStation!, 
+      mode, 
+      slotId, 
+      startTime: new Date(), 
+      status: 'charging', 
+      chargeLevel: 20, 
+      cost: 0, 
+      preAuthAmount: preAuth, 
+      durationLimit: duration, 
+      timeElapsed: 0, 
+      isLocked: true 
+    });
+
+    // AUTO-LOCK ON START
+    sendCommand('LOCK', true);
     setView('charging');
   };
 
   const toggleLock = async () => {
     if (!activeSession) return;
     const next = !activeSession.isLocked;
-    await sendCommand(next ? 'LOCK' : 'UNLOCK');
+    await sendCommand(next ? 'LOCK' : 'UNLOCK', false);
     setActiveSession(prev => prev ? ({ ...prev, isLocked: next }) : null);
   };
 
   const endSession = (cur = activeSession) => {
     if (!cur) return;
-    sendCommand('UNLOCK');
-    setWalletBalance(p => p + (cur.preAuthAmount - cur.cost));
-    setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: "Session ended", totalEnergy: "2.1kWh", mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: cur.preAuthAmount - cur.cost });
+    
+    // AUTO-UNLOCK ON STOP
+    sendCommand('UNLOCK', true);
+    
+    const refund = cur.preAuthAmount - cur.cost;
+    setWalletBalance(p => p + refund);
+    
+    setReceipt({ 
+      stationName: cur.station.name, 
+      date: new Date().toLocaleString(), 
+      duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, 
+      totalEnergy: `${(cur.cost / 1.2).toFixed(2)}kWh`, 
+      mode: cur.mode, 
+      cost: cur.cost, 
+      paid: cur.preAuthAmount, 
+      refund: refund 
+    });
+    
     setActiveSession(null);
     setSelectedStation(null);
     setView('home');
   };
 
-  const arduinoSnippet = `#include <ESP8266WiFi.h>
+  const arduinoSnippet = `// --- AUTOMATION FIRMWARE ---
+#include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Servo.h>
 
+const char* ssid = "E91585-Maxis_Fibre";
+const char* pass = "Ilhean2011";
+const char* bridgeUrl = "${fullUrl}";
+
 Servo myServo;
+const int servoPin = D4; 
+
 void setup() {
   Serial.begin(115200);
-  myServo.attach(D4); // Signal to D4
+  myServo.attach(servoPin);
+  
+  // Power-on test
+  myServo.write(180); delay(500);
+  myServo.write(0); delay(500);
+  
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\\nREADY");
 }
 
 void loop() {
-  WiFiClientSecure client;
-  client.setInsecure(); // REQUIRED for HTTPS
-  HTTPClient http;
-  
-  if (http.begin(client, "${fullUrl}")) {
-    int code = http.GET();
-    if (code == 200) {
-      String payload = http.getString();
-      payload.trim();
-      
-      if (payload.indexOf("UNLOCK") >= 0) {
-        myServo.write(180); // Move Servo
-      } else if (payload.indexOf("LOCK") >= 0) {
-        myServo.write(0);
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    
+    if (http.begin(client, bridgeUrl)) {
+      int code = http.GET();
+      if (code == 200) {
+        String payload = http.getString();
+        payload.trim();
+        
+        if (payload.indexOf("UNLOCK") >= 0) {
+          myServo.write(180); // Open
+          Serial.println("HUB STATUS: OPEN");
+        } else if (payload.indexOf("LOCK") >= 0) {
+          myServo.write(0); // Secure
+          Serial.println("HUB STATUS: SECURED");
+        }
       }
+      http.end();
     }
-    http.end();
   }
-  delay(3000);
+  delay(3000); // Poll cloud every 3 seconds
 }`;
 
   return (
@@ -196,15 +235,14 @@ void loop() {
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • Group 17</p>
               </div>
 
-              {/* HARDWARE WORKBENCH */}
               <div className="w-full mt-4 bg-slate-900 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden border border-slate-800">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <Cpu size={16} className="text-emerald-400" />
-                      <h3 className="text-white font-black text-xs uppercase tracking-wider">Workbench</h3>
+                      <h3 className="text-white font-black text-xs uppercase tracking-wider">Smart Hub</h3>
                     </div>
                     <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${isHardwareOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                      {isHardwareOnline ? 'Hub Connected' : 'Check Serial'}
+                      {isHardwareOnline ? 'Bridge Online' : 'Check Serial'}
                     </div>
                 </div>
 
@@ -212,22 +250,18 @@ void loop() {
                   <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
                     <div className="flex justify-between items-center mb-4">
                       <p className="text-[8px] font-black text-slate-500 uppercase flex items-center gap-2">
-                        <Power size={10} /> Servo Power Check
+                        <Power size={10} /> Automation Logic
                       </p>
-                      <ShieldAlert size={12} className="text-yellow-500" />
+                      <ShieldAlert size={12} className="text-emerald-500" />
                     </div>
                     <ul className="text-[9px] text-slate-300 font-bold space-y-2">
                        <li className="flex items-start gap-2">
-                          <span className="text-emerald-400">1.</span>
-                          <span>Move Red Wire to <b>Vin</b> (5V Power).</span>
+                          <span className="text-emerald-400">ON START:</span>
+                          <span>Website sends LOCK -> Motor moves to 0°.</span>
                        </li>
                        <li className="flex items-start gap-2">
-                          <span className="text-emerald-400">2.</span>
-                          <span>Check <b>Serial Monitor</b> for "Action: Opening".</span>
-                       </li>
-                       <li className="flex items-start gap-2">
-                          <span className="text-emerald-400">3.</span>
-                          <span>Signal Pin: <b>D4 (GPIO 2)</b>.</span>
+                          <span className="text-emerald-400">ON STOP:</span>
+                          <span>Website sends UNLOCK -> Motor moves to 180°.</span>
                        </li>
                     </ul>
                   </div>
@@ -236,7 +270,7 @@ void loop() {
                     onClick={() => setShowArduinoCode(true)}
                     className="w-full bg-emerald-600/10 text-emerald-400 py-4 rounded-2xl border border-emerald-600/20 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600/20 transition-all"
                   >
-                    <Code2 size={16} /> Get Gold-Standard Code
+                    <Code2 size={16} /> View Bridge Code
                   </button>
                 </div>
               </div>
@@ -262,21 +296,17 @@ void loop() {
            <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setShowArduinoCode(false)}>
               <div className="bg-slate-900 w-full max-w-lg rounded-[3rem] p-8 border border-white/10 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                  <div className="flex justify-between items-center mb-6">
-                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Robust HTTPS Logic</h4>
+                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Automated Firmware</h4>
                    <button onClick={() => setShowArduinoCode(false)} className="text-slate-500 hover:text-white"><ArrowRight size={20} className="rotate-180" /></button>
                  </div>
                  <pre className="flex-1 bg-black/50 p-6 rounded-2xl border border-white/5 overflow-auto text-[10px] text-emerald-300 font-mono leading-relaxed">
                    {arduinoSnippet}
                  </pre>
-                 <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                    <p className="text-[8px] text-yellow-500 font-black uppercase">Troubleshooting Hint</p>
-                    <p className="text-[10px] text-slate-300 mt-1">If the Serial prints "UNLOCK" but the motor is still, it's 100% a power issue. Connect Servo VCC to 5V (Vin).</p>
-                 </div>
                  <button 
                   onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Code Copied!"); }}
                   className="mt-6 w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/20"
                  >
-                   Copy Code
+                   Copy To Clipboard
                  </button>
               </div>
            </div>
@@ -303,6 +333,16 @@ void loop() {
                 <h2 className="text-3xl font-black text-gray-900 uppercase mb-2">Success</h2>
                 <div className="my-10 bg-gray-50/50 py-8 rounded-[2.5rem] border border-gray-100">
                    <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
+                </div>
+                <div className="text-left space-y-2 mb-8 px-4">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span>Duration</span>
+                    <span className="text-gray-900">{receipt.duration}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span>Refund Issued</span>
+                    <span className="text-emerald-600">RM {receipt.refund.toFixed(2)}</span>
+                  </div>
                 </div>
                 <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em]">Done</button>
              </div>

@@ -22,7 +22,7 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
     setTimeout(() => {
       toggleLock();
       setIsLocking(false);
-    }, 800);
+    }, 1200);
   };
 
   return (
@@ -33,13 +33,13 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
          <div className="bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-emerald-500 animate-pulse'}`}></div>
             <span className="text-[10px] font-black text-gray-800 uppercase tracking-[0.2em]">
-               {isCompleted ? "Fully Charged" : "Syncing Grid"}
+               {isCompleted ? "Session Done" : "Charging Active"}
             </span>
          </div>
          
          <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isHardwareConnected ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-400'}`}>
             <ShieldCheck size={14} className={isHardwareConnected ? 'text-emerald-500' : ''} />
-            {isHardwareConnected ? 'Hub Secure' : 'Offline'}
+            {isHardwareConnected ? 'Bridge Active' : 'Offline'}
          </div>
       </div>
 
@@ -86,7 +86,7 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                </span>
             </div>
             <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col items-center">
-               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Energy Cost</span>
+               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Cost</span>
                <span className="text-2xl font-black text-emerald-600 tracking-tighter">
                   RM {activeSession.cost.toFixed(2)}
                </span>
@@ -104,14 +104,16 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                } ${isLocking ? 'cursor-wait opacity-80' : 'active:scale-95'}`}
             >
                {isLocking ? (
-                 <Loader2 size={20} className="animate-spin" />
+                 <Loader2 size={20} className="animate-spin text-emerald-400" />
                ) : (
                  activeSession.isLocked ? <Lock size={20} className="text-emerald-400" /> : <Unlock size={20} className="text-emerald-500" />
                )}
-               {isLocking 
-                 ? (activeSession.isLocked ? "Unlocking Hub..." : "Securing Hub...") 
-                 : (activeSession.isLocked ? "Release Smart Dock" : "Secure Smart Dock")
-               }
+               <div className="flex flex-col items-start leading-none">
+                  <span className="text-[10px] font-black">
+                     {isLocking ? (activeSession.isLocked ? "Unlocking Hub..." : "Locking Hub...") : (activeSession.isLocked ? "DOCKED & SECURED" : "RELEASE DOCK")}
+                  </span>
+                  {!isLocking && <span className="text-[7px] font-black opacity-50 mt-1 uppercase tracking-widest">Automation Active</span>}
+               </div>
             </button>
          )}
 
@@ -128,6 +130,7 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                 {isCompleted ? "CLOSE SESSION" : "ABORT CHARGING"}
              </button>
          </div>
+         {!isCompleted && <p className="text-center text-[8px] font-black text-gray-400 uppercase tracking-widest">System will Auto-Unlock on completion</p>}
       </div>
     </div>
   );

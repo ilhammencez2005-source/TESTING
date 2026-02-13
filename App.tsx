@@ -20,7 +20,6 @@ export default function App() {
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   
-  // Cleaned up hardware state for User perspective
   const [isStationSynced, setIsStationSynced] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [stationId, setStationId] = useState('ETP-G17-HUB');
@@ -40,7 +39,6 @@ export default function App() {
   };
 
   const sendCommand = async (command: 'U' | 'L') => {
-     // Control logic remains but user just sees notification
      console.log(`Cloud Command Sent: ${command}`);
   };
 
@@ -138,7 +136,7 @@ export default function App() {
                   </div>
               </div>
 
-              {/* Station Connectivity (User Version of Smart Link) */}
+              {/* Station Connectivity (User-Friendly Version) */}
               <div className="w-full mt-4 bg-slate-900 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden border border-slate-800">
                 <div className="absolute -right-8 -top-8 opacity-10">
                    <Wifi size={160} />

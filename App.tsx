@@ -123,12 +123,18 @@ export default function App() {
 
   const arduinoSnippet = `#include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h> // REQUIRED
+#include <WiFiClientSecure.h>
 #include <Servo.h>
+
+Servo myServo;
+void setup() {
+  Serial.begin(115200);
+  myServo.attach(D4); // Signal to D4
+}
 
 void loop() {
   WiFiClientSecure client;
-  client.setInsecure(); // ALLOW HTTPS
+  client.setInsecure(); // REQUIRED for HTTPS
   HTTPClient http;
   
   if (http.begin(client, "${fullUrl}")) {
@@ -138,7 +144,7 @@ void loop() {
       payload.trim();
       
       if (payload.indexOf("UNLOCK") >= 0) {
-        myServo.write(180);
+        myServo.write(180); // Move Servo
       } else if (payload.indexOf("LOCK") >= 0) {
         myServo.write(0);
       }
@@ -217,7 +223,7 @@ void loop() {
                        </li>
                        <li className="flex items-start gap-2">
                           <span className="text-emerald-400">2.</span>
-                          <span>Use <b>WiFiClientSecure</b> for HTTPS URLs.</span>
+                          <span>Check <b>Serial Monitor</b> for "Action: Opening".</span>
                        </li>
                        <li className="flex items-start gap-2">
                           <span className="text-emerald-400">3.</span>
@@ -230,7 +236,7 @@ void loop() {
                     onClick={() => setShowArduinoCode(true)}
                     className="w-full bg-emerald-600/10 text-emerald-400 py-4 rounded-2xl border border-emerald-600/20 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600/20 transition-all"
                   >
-                    <Code2 size={16} /> Get Full Arduino Code
+                    <Code2 size={16} /> Get Gold-Standard Code
                   </button>
                 </div>
               </div>
@@ -256,14 +262,18 @@ void loop() {
            <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setShowArduinoCode(false)}>
               <div className="bg-slate-900 w-full max-w-lg rounded-[3rem] p-8 border border-white/10 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                  <div className="flex justify-between items-center mb-6">
-                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">ESP8266 HTTPS Fix</h4>
+                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Robust HTTPS Logic</h4>
                    <button onClick={() => setShowArduinoCode(false)} className="text-slate-500 hover:text-white"><ArrowRight size={20} className="rotate-180" /></button>
                  </div>
                  <pre className="flex-1 bg-black/50 p-6 rounded-2xl border border-white/5 overflow-auto text-[10px] text-emerald-300 font-mono leading-relaxed">
                    {arduinoSnippet}
                  </pre>
+                 <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                    <p className="text-[8px] text-yellow-500 font-black uppercase">Troubleshooting Hint</p>
+                    <p className="text-[10px] text-slate-300 mt-1">If the Serial prints "UNLOCK" but the motor is still, it's 100% a power issue. Connect Servo VCC to 5V (Vin).</p>
+                 </div>
                  <button 
-                  onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Snippet Copied!"); }}
+                  onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Code Copied!"); }}
                   className="mt-6 w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/20"
                  >
                    Copy Code
@@ -292,4 +302,12 @@ void loop() {
                 <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-600"><CheckCircle2 size={48} /></div>
                 <h2 className="text-3xl font-black text-gray-900 uppercase mb-2">Success</h2>
                 <div className="my-10 bg-gray-50/50 py-8 rounded-[2.5rem] border border-gray-100">
-                   <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2
+                   <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
+                </div>
+                <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em]">Done</button>
+             </div>
+          </div>
+        )}
+    </div>
+  );
+}

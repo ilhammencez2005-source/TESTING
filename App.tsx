@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, CheckCircle2, Wifi, Search, Activity, RefreshCw, Zap as ZapIcon, Info, Settings2, AlertTriangle, ArrowRight, WifiOff, ShieldAlert, Globe, Link, Copy, ExternalLink, Cpu, Code2, Power, BatteryCharging } from 'lucide-react';
+import { User, CheckCircle2, Wifi, Search, Activity, RefreshCw, Zap as ZapIcon, Info, Settings2, AlertTriangle, ArrowRight, WifiOff, ShieldAlert, Globe, Link, Copy, ExternalLink, Cpu, Code2, Power, BatteryCharging, ShieldCheck } from 'lucide-react';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { HomeView } from './components/HomeView';
@@ -75,7 +75,6 @@ export default function App() {
         setActiveSession(prev => {
           if (!prev) return null;
           if (prev.chargeLevel >= 100) { 
-            // AUTOMATIC COMPLETION
             endSession(prev); 
             return null; 
           }
@@ -88,23 +87,8 @@ export default function App() {
 
   const startCharging = (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
     if (preAuth > walletBalance) return showNotification("INSUFFICIENT CREDITS");
-    
     setWalletBalance(p => p - preAuth);
-    setActiveSession({ 
-      station: selectedStation!, 
-      mode, 
-      slotId, 
-      startTime: new Date(), 
-      status: 'charging', 
-      chargeLevel: 20, 
-      cost: 0, 
-      preAuthAmount: preAuth, 
-      durationLimit: duration, 
-      timeElapsed: 0, 
-      isLocked: true 
-    });
-
-    // AUTO-LOCK ON START
+    setActiveSession({ station: selectedStation!, mode, slotId, startTime: new Date(), status: 'charging', chargeLevel: 20, cost: 0, preAuthAmount: preAuth, durationLimit: duration, timeElapsed: 0, isLocked: true });
     sendCommand('LOCK', true);
     setView('charging');
   };
@@ -118,27 +102,11 @@ export default function App() {
 
   const endSession = (cur = activeSession) => {
     if (!cur) return;
-    
-    // AUTO-UNLOCK ON STOP
     sendCommand('UNLOCK', true);
-    
     const refund = cur.preAuthAmount - cur.cost;
     setWalletBalance(p => p + refund);
-    
-    setReceipt({ 
-      stationName: cur.station.name, 
-      date: new Date().toLocaleString(), 
-      duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, 
-      totalEnergy: `${(cur.cost / 1.2).toFixed(2)}kWh`, 
-      mode: cur.mode, 
-      cost: cur.cost, 
-      paid: cur.preAuthAmount, 
-      refund: refund 
-    });
-    
-    setActiveSession(null);
-    setSelectedStation(null);
-    setView('home');
+    setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, totalEnergy: `${(cur.cost / 1.2).toFixed(2)}kWh`, mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: refund });
+    setActiveSession(null); setSelectedStation(null); setView('home');
   };
 
   const arduinoSnippet = `// --- AUTOMATION FIRMWARE ---
@@ -157,40 +125,26 @@ const int servoPin = D4;
 void setup() {
   Serial.begin(115200);
   myServo.attach(servoPin);
-  
-  // Power-on test
-  myServo.write(180); delay(500);
-  myServo.write(0); delay(500);
-  
+  myServo.write(180); delay(500); myServo.write(0); delay(500);
   WiFi.begin(ssid, pass);
   while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.println("\\nREADY");
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    WiFiClientSecure client;
-    client.setInsecure();
+    WiFiClientSecure client; client.setInsecure();
     HTTPClient http;
-    
     if (http.begin(client, bridgeUrl)) {
       int code = http.GET();
       if (code == 200) {
-        String payload = http.getString();
-        payload.trim();
-        
-        if (payload.indexOf("UNLOCK") >= 0) {
-          myServo.write(180); // Open
-          Serial.println("HUB STATUS: OPEN");
-        } else if (payload.indexOf("LOCK") >= 0) {
-          myServo.write(0); // Secure
-          Serial.println("HUB STATUS: SECURED");
-        }
+        String payload = http.getString(); payload.trim();
+        if (payload.indexOf("UNLOCK") >= 0) myServo.write(180);
+        else if (payload.indexOf("LOCK") >= 0) myServo.write(0);
       }
       http.end();
     }
   }
-  delay(3000); // Poll cloud every 3 seconds
+  delay(3000);
 }`;
 
   return (
@@ -235,44 +189,20 @@ void loop() {
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • Group 17</p>
               </div>
 
-              <div className="w-full mt-4 bg-slate-900 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden border border-slate-800">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <Cpu size={16} className="text-emerald-400" />
-                      <h3 className="text-white font-black text-xs uppercase tracking-wider">Smart Hub</h3>
-                    </div>
-                    <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${isHardwareOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                      {isHardwareOnline ? 'Bridge Online' : 'Check Serial'}
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="text-[8px] font-black text-slate-500 uppercase flex items-center gap-2">
-                        <Power size={10} /> Automation Logic
-                      </p>
-                      <ShieldAlert size={12} className="text-emerald-500" />
-                    </div>
-                    <ul className="text-[9px] text-slate-300 font-bold space-y-2">
-                       <li className="flex items-start gap-2">
-                          <span className="text-emerald-400">ON START:</span>
-                          <span>Website sends LOCK -> Motor moves to 0°.</span>
-                       </li>
-                       <li className="flex items-start gap-2">
-                          <span className="text-emerald-400">ON STOP:</span>
-                          <span>Website sends UNLOCK -> Motor moves to 180°.</span>
-                       </li>
-                    </ul>
+              {/* SIMPLIFIED HARDWARE STATUS */}
+              <div className="w-full mt-4 bg-white rounded-[3rem] p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isHardwareOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
+                    <ShieldCheck size={24} />
                   </div>
-
-                  <button 
-                    onClick={() => setShowArduinoCode(true)}
-                    className="w-full bg-emerald-600/10 text-emerald-400 py-4 rounded-2xl border border-emerald-600/20 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600/20 transition-all"
-                  >
-                    <Code2 size={16} /> View Bridge Code
-                  </button>
+                  <div>
+                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">Smart Dock Hub</h3>
+                    <p className={`text-[9px] font-black uppercase tracking-widest ${isHardwareOnline ? 'text-emerald-500' : 'text-gray-400'}`}>
+                      {isHardwareOnline ? 'Verified Connection' : 'Scanning Bridge...'}
+                    </p>
+                  </div>
                 </div>
+                <div className={`w-3 h-3 rounded-full ${isHardwareOnline ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-gray-300'}`}></div>
               </div>
 
               <div className="w-full bg-white rounded-[3rem] p-8 border border-gray-100 mt-4 shadow-sm">
@@ -285,6 +215,14 @@ void loop() {
                  </div>
                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-gray-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-widest shadow-xl">Top Up Wallet</button>
               </div>
+
+              {/* SUBTLE DEVELOPER FOOTER */}
+              <button 
+                onClick={() => setShowArduinoCode(true)}
+                className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.3em] hover:text-gray-400 transition-colors"
+              >
+                Dev: Source Code
+              </button>
             </div>
           )}
           {view === 'assistant' && <GeminiAssistant onClose={() => setView('home')} contextData={{ walletBalance, selectedStation }} />}
@@ -296,18 +234,13 @@ void loop() {
            <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setShowArduinoCode(false)}>
               <div className="bg-slate-900 w-full max-w-lg rounded-[3rem] p-8 border border-white/10 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                  <div className="flex justify-between items-center mb-6">
-                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Automated Firmware</h4>
+                   <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Hardware Firmware</h4>
                    <button onClick={() => setShowArduinoCode(false)} className="text-slate-500 hover:text-white"><ArrowRight size={20} className="rotate-180" /></button>
                  </div>
                  <pre className="flex-1 bg-black/50 p-6 rounded-2xl border border-white/5 overflow-auto text-[10px] text-emerald-300 font-mono leading-relaxed">
                    {arduinoSnippet}
                  </pre>
-                 <button 
-                  onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Code Copied!"); }}
-                  className="mt-6 w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/20"
-                 >
-                   Copy To Clipboard
-                 </button>
+                 <button onClick={() => { navigator.clipboard.writeText(arduinoSnippet); showNotification("Code Copied!"); }} className="mt-6 w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-900/20">Copy To Clipboard</button>
               </div>
            </div>
         )}
@@ -333,16 +266,6 @@ void loop() {
                 <h2 className="text-3xl font-black text-gray-900 uppercase mb-2">Success</h2>
                 <div className="my-10 bg-gray-50/50 py-8 rounded-[2.5rem] border border-gray-100">
                    <p className="text-6xl font-black text-emerald-600 tracking-tighter">RM {receipt.cost.toFixed(2)}</p>
-                </div>
-                <div className="text-left space-y-2 mb-8 px-4">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    <span>Duration</span>
-                    <span className="text-gray-900">{receipt.duration}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    <span>Refund Issued</span>
-                    <span className="text-emerald-600">RM {receipt.refund.toFixed(2)}</span>
-                  </div>
                 </div>
                 <button onClick={() => setReceipt(null)} className="w-full bg-gray-900 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em]">Done</button>
              </div>

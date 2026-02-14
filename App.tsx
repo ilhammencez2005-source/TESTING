@@ -109,42 +109,110 @@ export default function App() {
     setActiveSession(null); setSelectedStation(null); setView('home');
   };
 
-  const arduinoSnippet = `// --- AUTOMATION FIRMWARE ---
+  const arduinoSnippet = `// --- SOLAR SYNERGY: SMART HUB FIRMWARE ---
+// MANDATORY: Remove "#include <LiquidCrystal.h>" if it exists at the top.
+// MANDATORY: Install "LiquidCrystal I2C" by Frank de Brabander in Library Manager.
+
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Servo.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h> // Correct library for I2C LCD
 
+// 1. SETTINGS & LCD INIT (Address 0x27 is standard for I2C LCDs)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 const char* ssid = "E91585-Maxis_Fibre";
 const char* pass = "Ilhean2011";
 const char* bridgeUrl = "${fullUrl}";
 
+// 2. SERVO INIT
 Servo myServo;
-const int servoPin = D4; 
+const int servoPin = D4; // Signal pin (GPIO 2)
 
 void setup() {
   Serial.begin(115200);
+  
+  // Start LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("SOLAR SYNERGY");
+  lcd.setCursor(0, 1);
+  lcd.print("STARTING...");
+
+  // Start Servo & Test Sweep
   myServo.attach(servoPin);
-  myServo.write(180); delay(500); myServo.write(0); delay(500);
+  myServo.write(180); // Open position
+  delay(600);
+  myServo.write(0);   // Closed position
+  delay(600);
+  
+  // Connect WiFi
   WiFi.begin(ssid, pass);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  lcd.clear();
+  lcd.print("CONNECTING...");
+  
+  int retryCount = 0;
+  while (WiFi.status() != WL_CONNECTED && retryCount < 20) {
+    delay(500);
+    Serial.print(".");
+    lcd.setCursor(retryCount % 16, 1);
+    lcd.print(".");
+    retryCount++;
+  }
+
+  // Ready Screen
+  lcd.clear();
+  lcd.print("SYSTEM ONLINE");
+  lcd.setCursor(0, 1);
+  lcd.print("READY TO SCAN");
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    WiFiClientSecure client; client.setInsecure();
+    WiFiClientSecure client;
+    client.setInsecure(); // Required for Vercel HTTPS
     HTTPClient http;
+    
     if (http.begin(client, bridgeUrl)) {
-      int code = http.GET();
-      if (code == 200) {
-        String payload = http.getString(); payload.trim();
-        if (payload.indexOf("UNLOCK") >= 0) myServo.write(180);
-        else if (payload.indexOf("LOCK") >= 0) myServo.write(0);
+      int httpCode = http.GET();
+      if (httpCode == 200) {
+        String payload = http.getString();
+        payload.trim(); 
+        
+        if (payload == "UNLOCK") {
+          myServo.write(180); // Move Servo to Open
+          updateLCD("UNLOCKED", "VILLAGE 3C HUB");
+        } 
+        else if (payload == "LOCK") {
+          myServo.write(0);   // Move Servo to Locked
+          updateLCD("LOCKED", "CHARGING ACTIVE");
+        }
       }
       http.end();
     }
+  } else {
+    WiFi.begin(ssid, pass);
+    lcd.setCursor(0, 1);
+    lcd.print("RECONNECTING...");
   }
-  delay(3000);
+  
+  delay(3000); // Polling interval
+}
+
+void updateLCD(String status, String line2) {
+  static String lastStatus = "";
+  if (status == lastStatus) return; // Prevent flickering
+  
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("STATUS: " + status);
+  lcd.setCursor(0, 1);
+  lcd.print(line2);
+  
+  Serial.println("HUB CHANGE: " + status);
+  lastStatus = status;
 }`;
 
   return (
@@ -189,7 +257,6 @@ void loop() {
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • Group 17</p>
               </div>
 
-              {/* SIMPLIFIED HARDWARE STATUS */}
               <div className="w-full mt-4 bg-white rounded-[3rem] p-6 shadow-sm border border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isHardwareOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
@@ -216,7 +283,6 @@ void loop() {
                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-gray-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-widest shadow-xl">Top Up Wallet</button>
               </div>
 
-              {/* SUBTLE DEVELOPER FOOTER */}
               <button 
                 onClick={() => setShowArduinoCode(true)}
                 className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.3em] hover:text-gray-400 transition-colors"

@@ -145,6 +145,15 @@ export default function App() {
     setIsPrebookFlow(false);
   };
 
+  const toggleLock = async () => {
+    if (!activeSession) return;
+    const nextState = !activeSession.isLocked;
+    const command = nextState ? 'LOCK' : 'UNLOCK';
+    await sendCommand(command);
+    setActiveSession(prev => prev ? { ...prev, isLocked: nextState } : null);
+    showNotification(`Hub ${command}ed`);
+  };
+
   const endSession = (cur = activeSession) => {
     if (!cur) return;
     sendCommand('UNLOCK');
@@ -217,7 +226,7 @@ export default function App() {
           {view === 'charging' && (
             <ChargingSessionView 
               activeSession={activeSession} 
-              toggleLock={() => {}} 
+              toggleLock={toggleLock} 
               endSession={() => endSession()} 
               isHardwareConnected={true} 
             />

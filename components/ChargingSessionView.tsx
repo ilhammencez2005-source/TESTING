@@ -13,12 +13,13 @@ interface ChargingSessionViewProps {
 export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ activeSession, toggleLock, endSession }) => {
   const [isLocking, setIsLocking] = useState(false);
 
-  if (!activeSession) return <div className="p-10 text-center text-gray-500">No active session found.</div>;
+  if (!activeSession) return <div className="p-10 text-center text-gray-500 font-black uppercase tracking-widest">No active session found.</div>;
   const percentage = Math.round(activeSession.chargeLevel);
   const isCompleted = activeSession.status === 'completed';
 
   const handleLockClick = () => {
     setIsLocking(true);
+    // Visual feedback delay
     setTimeout(() => {
       toggleLock();
       setIsLocking(false);

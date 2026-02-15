@@ -26,6 +26,7 @@ export default function App() {
   const [prebookCountdown, setPrebookCountdown] = useState<number | null>(null);
   const [pendingSessionData, setPendingSessionData] = useState<any>(null);
 
+  // Use the same bridge path
   const apiPath = '/api/status';
 
   const showNotification = (msg: string) => {
@@ -34,22 +35,23 @@ export default function App() {
   };
 
   const sendCommand = async (command: 'UNLOCK' | 'LOCK') => {
-     console.log(`[APP] Sending manual hardware command: ${command}`);
+     console.log(`[BRIDGE] Sending: ${command}`);
      try {
-       const res = await fetch(apiPath, {
+       // Added a cache-busting query parameter to ensure the server always processes the POST
+       const res = await fetch(`${apiPath}?t=${Date.now()}`, {
          method: 'POST',
-         headers: { 
-           'Content-Type': 'application/json',
-           'Cache-Control': 'no-cache'
-         },
+         headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ command })
        });
-       if (!res.ok) throw new Error("Server Rejected Command");
-       const data = await res.json();
-       console.log(`[BRIDGE] Confirmed state: ${data.newState}`);
+       if (res.ok) {
+         const data = await res.json();
+         console.log(`[BRIDGE] Confirmed server state: ${data.state}`);
+       } else {
+         throw new Error("Server error");
+       }
      } catch (e) {
-       console.error("Bridge Error:", e);
-       showNotification("HARDWARE SYNC FAILED");
+       console.error("Hardware bridge error:", e);
+       showNotification("CONNECTION LOST");
      }
   };
 
@@ -113,12 +115,12 @@ export default function App() {
     const command = nextState ? 'LOCK' : 'UNLOCK';
     await sendCommand(command);
     setActiveSession(prev => prev ? { ...prev, isLocked: nextState } : null);
-    showNotification(`Hub ${command}ed`);
+    showNotification(`Hub is now ${command}ed`);
   };
 
   const endSession = (cur = activeSession) => {
     if (!cur) return;
-    sendCommand('UNLOCK');
+    sendCommand('UNLOCK'); // Return servo to neutral on finish
     const refund = cur.preAuthAmount - cur.cost;
     const energy = cur.cost > 0 ? cur.cost / 1.2 : 4.5; 
     setWalletBalance(p => p + refund);
@@ -168,6 +170,7 @@ export default function App() {
 
           {view === 'charging' && <ChargingSessionView activeSession={activeSession} toggleLock={toggleLock} endSession={() => endSession()} isHardwareConnected={true} />}
           {view === 'history' && <HistoryView history={chargingHistory} onClearHistory={() => setChargingHistory([])} />}
+          {view === 'profile' && <div className="p-8 text-center font-black uppercase text-gray-400">Profile View</div>}
           {view === 'assistant' && <GeminiAssistant onClose={() => setView('home')} contextData={{ walletBalance, selectedStation }} />}
         </main>
 

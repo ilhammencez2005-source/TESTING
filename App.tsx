@@ -22,54 +22,45 @@ export default function App() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [chargingHistory, setChargingHistory] = useState<ChargingHistoryItem[]>([]);
   
-  // PREBOOK FLOW STATES
   const [isPrebookFlow, setIsPrebookFlow] = useState(false);
   const [prebookCountdown, setPrebookCountdown] = useState<number | null>(null);
   const [pendingSessionData, setPendingSessionData] = useState<any>(null);
 
-  // BRIDGE CONFIGURATION
   const apiPath = '/api/status';
-  const stationId = 'ETP-G17-HUB';
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
   };
 
-  const handleLocateMe = () => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() });
-      }, () => {
-        showNotification("Location Access Denied");
-      });
-    }
-  };
-
-  useEffect(() => {
-    handleLocateMe();
-    const savedHistory = localStorage.getItem('synergy_history');
-    if (savedHistory) setChargingHistory(JSON.parse(savedHistory));
-    const savedBalance = localStorage.getItem('synergy_balance');
-    if (savedBalance) setWalletBalance(parseFloat(savedBalance));
-  }, []);
-
   const sendCommand = async (command: 'UNLOCK' | 'LOCK') => {
-     console.log(`Manual Command to Bridge: ${command}`);
+     console.log(`[APP] Sending manual hardware command: ${command}`);
      try {
        const res = await fetch(apiPath, {
          method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ id: stationId, command })
+         headers: { 
+           'Content-Type': 'application/json',
+           'Cache-Control': 'no-cache'
+         },
+         body: JSON.stringify({ command })
        });
-       if (!res.ok) throw new Error("API error");
+       if (!res.ok) throw new Error("Server Rejected Command");
+       const data = await res.json();
+       console.log(`[BRIDGE] Confirmed state: ${data.newState}`);
      } catch (e) {
-       console.error("Bridge Sync Failed:", e);
-       showNotification("BRIDGE OFFLINE");
+       console.error("Bridge Error:", e);
+       showNotification("HARDWARE SYNC FAILED");
      }
   };
 
-  // Prebook Countdown Timer
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() });
+      });
+    }
+  }, []);
+
   useEffect(() => {
     let timer: any;
     if (prebookCountdown !== null && prebookCountdown > 0) {
@@ -81,17 +72,13 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [prebookCountdown, pendingSessionData]);
 
-  // Charging Progress
   useEffect(() => {
     let interval: any;
     if (activeSession && activeSession.status === 'charging') {
       interval = setInterval(() => {
         setActiveSession(prev => {
           if (!prev) return null;
-          if (prev.chargeLevel >= 100) { 
-            endSession(prev); 
-            return null; 
-          }
+          if (prev.chargeLevel >= 100) { endSession(prev); return null; }
           const costInc = prev.mode === 'fast' ? 0.05 : 0;
           return { ...prev, chargeLevel: prev.chargeLevel + 0.1, cost: prev.cost + costInc, timeElapsed: prev.timeElapsed + 1 };
         });
@@ -114,17 +101,8 @@ export default function App() {
     setWalletBalance(p => p - preAuth);
     setActiveSession({ 
       station: selectedStation!, 
-      mode, slotId, 
-      startTime: new Date(), 
-      status: 'charging', 
-      chargeLevel: 24, 
-      cost: 0, 
-      preAuthAmount: preAuth, 
-      durationLimit: duration, 
-      timeElapsed: 0, 
-      isLocked: false // Start session as unlocked as per your requirement
+      mode, slotId, startTime: new Date(), status: 'charging', chargeLevel: 24, cost: 0, preAuthAmount: preAuth, durationLimit: duration, timeElapsed: 0, isLocked: false 
     });
-    // NOTE: Removed sendCommand('LOCK') from here so it doesn't move during prebook/start
     setView('charging');
     setIsPrebookFlow(false);
   };
@@ -135,36 +113,27 @@ export default function App() {
     const command = nextState ? 'LOCK' : 'UNLOCK';
     await sendCommand(command);
     setActiveSession(prev => prev ? { ...prev, isLocked: nextState } : null);
-    showNotification(`Servo ${command}ed`);
+    showNotification(`Hub ${command}ed`);
   };
 
   const endSession = (cur = activeSession) => {
     if (!cur) return;
-    sendCommand('UNLOCK'); // Automatically unlock at end for convenience
+    sendCommand('UNLOCK');
     const refund = cur.preAuthAmount - cur.cost;
-    const energyConsumed = cur.cost > 0 ? cur.cost / 1.2 : 4.5; 
+    const energy = cur.cost > 0 ? cur.cost / 1.2 : 4.5; 
     setWalletBalance(p => p + refund);
     
     const historyItem: ChargingHistoryItem = {
       id: Date.now(),
       stationName: cur.station.name,
-      date: new Date().toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toLocaleString(),
       amount: cur.cost,
-      energy: energyConsumed,
+      energy: energy,
       status: 'Completed'
     };
     
     setChargingHistory(prev => [historyItem, ...prev]);
-    setReceipt({ 
-      stationName: cur.station.name, 
-      date: new Date().toLocaleString(), 
-      duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, 
-      totalEnergy: `${energyConsumed.toFixed(2)}kWh`, 
-      mode: cur.mode, 
-      cost: cur.cost, 
-      paid: cur.preAuthAmount, 
-      refund: refund 
-    });
+    setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: `${Math.floor(cur.timeElapsed / 60)}m`, totalEnergy: `${energy.toFixed(2)}kWh`, mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: refund });
     setActiveSession(null); setSelectedStation(null); setView('home');
   };
 
@@ -186,7 +155,7 @@ export default function App() {
           {view === 'home' && (
             <HomeView 
               userLocation={userLocation} 
-              handleLocateMe={handleLocateMe} 
+              handleLocateMe={() => {}} 
               stations={STATIONS} 
               onBookStation={(s) => { setSelectedStation(s); setIsPrebookFlow(false); setView('booking'); }} 
               onPrebook={(s) => { setSelectedStation(s); setIsPrebookFlow(true); setView('booking'); }} 
@@ -194,50 +163,27 @@ export default function App() {
           )}
           
           {view === 'booking' && selectedStation && (
-            <BookingView 
-              selectedStation={selectedStation} 
-              onBack={() => { setView('home'); setSelectedStation(null); }} 
-              onStartCharging={startCharging}
-              isPrebook={isPrebookFlow}
-            />
+            <BookingView selectedStation={selectedStation} onBack={() => { setView('home'); setSelectedStation(null); }} onStartCharging={startCharging} isPrebook={isPrebookFlow} />
           )}
 
-          {view === 'charging' && (
-            <ChargingSessionView 
-              activeSession={activeSession} 
-              toggleLock={toggleLock} 
-              endSession={() => endSession()} 
-              isHardwareConnected={true} 
-            />
-          )}
-
+          {view === 'charging' && <ChargingSessionView activeSession={activeSession} toggleLock={toggleLock} endSession={() => endSession()} isHardwareConnected={true} />}
           {view === 'history' && <HistoryView history={chargingHistory} onClearHistory={() => setChargingHistory([])} />}
-          {view === 'profile' && <div className="p-8 text-center font-black uppercase text-gray-400">Profile View</div>}
           {view === 'assistant' && <GeminiAssistant onClose={() => setView('home')} contextData={{ walletBalance, selectedStation }} />}
         </main>
 
         <NavigationBar view={view} setView={setView} hasActiveSession={!!activeSession} showNotification={showNotification} />
 
-        {/* PREBOOK COUNTDOWN */}
         {prebookCountdown !== null && (
           <div className="fixed inset-0 z-[200] bg-white/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-fade-in-down">
             <div className="relative w-56 h-56 flex items-center justify-center mb-8">
                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
                   <circle cx="50%" cy="50%" r="45%" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
-                  <circle 
-                    cx="50%" cy="50%" r="45%" 
-                    stroke="#10b981" 
-                    strokeWidth="10" 
-                    fill="transparent" 
-                    strokeDasharray="283%" 
-                    strokeDashoffset={`${283 - (283 * (10 - prebookCountdown)) / 10}%`}
-                    className="transition-all duration-1000 ease-linear"
-                  />
+                  <circle cx="50%" cy="50%" r="45%" stroke="#10b981" strokeWidth="10" fill="transparent" strokeDasharray="283%" strokeDashoffset={`${283 - (283 * (10 - prebookCountdown)) / 10}%`} className="transition-all duration-1000 ease-linear" />
                </svg>
                <span className="text-7xl font-black text-gray-900 tabular-nums">{prebookCountdown}</span>
             </div>
             <h3 className="text-3xl font-black text-gray-900 uppercase tracking-tight mb-3">Syncing Hub</h3>
-            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-relaxed">Hardware is silent during countdown...</p>
+            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-relaxed">Hardware is ready. Start session to enable controls.</p>
           </div>
         )}
 

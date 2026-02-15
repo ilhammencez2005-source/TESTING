@@ -21,7 +21,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
 
   return (
     <div className="bg-gray-50 min-h-full flex flex-col pb-40">
-       <div className="h-[40vh] min-h-[300px] bg-slate-200 w-full relative overflow-hidden shadow-inner">
+       <div className="h-[35vh] min-h-[250px] bg-slate-200 w-full relative overflow-hidden shadow-inner">
           <iframe 
              key={userLocation ? `${userLocation.lat}-${userLocation.lng}-${userLocation.timestamp}` : 'default-map'}
              width="100%" 
@@ -33,18 +33,18 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
              style={{ filter: 'grayscale(10%) contrast(1.1)' }}
              title="Map"
           ></iframe>
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent to-gray-50/80"></div>
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-gray-50/20"></div>
           
           <button 
              onClick={handleLocateMe}
-             className="absolute bottom-16 right-6 bg-white p-3 rounded-2xl shadow-xl text-gray-700 z-10 active:scale-95 transition-all hover:bg-gray-50 border border-gray-100"
+             className="absolute bottom-6 right-6 bg-white p-3 rounded-2xl shadow-xl text-gray-700 z-10 active:scale-95 transition-all hover:bg-gray-50 border border-gray-100"
              aria-label="Locate me"
           >
              <Crosshair size={24} className={userLocation ? 'text-emerald-600' : 'text-gray-700'} />
           </button>
        </div>
 
-       <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 -mt-12 relative z-10 space-y-6">
+       <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 relative z-10 space-y-6">
           
           <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-[3rem] p-8 shadow-2xl text-white border border-white/10 overflow-hidden relative">
             <div className="absolute -right-6 -top-6 opacity-10 rotate-12">
@@ -57,7 +57,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                      <div className="p-1.5 bg-yellow-400/20 rounded-lg">
                         <Sun size={14} className="text-yellow-300 fill-yellow-300" />
                      </div>
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100">Sync Data</span>
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100">Live Synergy</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                      <h3 className="text-3xl font-black tracking-tighter">48.2</h3>
@@ -92,12 +92,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                       <div className="flex justify-between items-start mb-6">
                          <div>
                             <h3 className="text-xl font-black text-gray-900 tracking-tight">{station.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                               <span className={`text-[9px] font-black px-3 py-1 rounded-full ${station.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            <div className="flex items-center gap-3 mt-1.5">
+                               <span className={`text-[9px] font-black px-3 py-1 rounded-lg ${station.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                   {station.status.toUpperCase()}
                                </span>
-                               <span className="text-xs font-bold text-gray-400 flex items-center gap-1">
-                                   <MapPin size={12} /> {station.distance}
+                               <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5">
+                                   <MapPin size={12} className="text-emerald-500" /> {station.distance}
                                </span>
                             </div>
                          </div>
@@ -110,14 +110,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                       <div className="grid grid-cols-2 gap-3 mb-6">
                          <button 
                             onClick={() => onPrebook(station)}
-                            className="px-4 bg-gray-50 border border-gray-100 text-gray-700 text-xs font-black py-4 rounded-2xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                            className="px-4 bg-gray-50 border border-gray-100 text-gray-800 text-[10px] font-black py-4 rounded-2xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 uppercase tracking-widest"
                          >
                             <CalendarClock size={16} />
                             PREBOOK
                          </button>
                          <button 
                             onClick={() => onBookStation(station)}
-                            className="px-4 bg-emerald-600 text-white text-xs font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 active:scale-95"
+                            className="px-4 bg-emerald-600 text-white text-[10px] font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 active:scale-95 uppercase tracking-widest"
                          >
                             <Zap size={16} fill="currentColor" />
                             CHARGE NOW
@@ -172,10 +172,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                      </div>
                      <div className="bg-blue-50 p-5 rounded-[2rem] border border-blue-100 flex items-center gap-3">
                         <div className="p-3 bg-blue-100 rounded-2xl text-blue-600">
-                           <Shield size={20} />
+                           <Info size={20} />
                         </div>
                         <div>
-                           <p className="text-[10px] text-blue-600 font-black uppercase tracking-wider">Security</p>
+                           <p className="text-[10px] text-blue-600 font-black uppercase tracking-wider">Info</p>
                            <p className="text-sm font-black text-gray-800">Verified</p>
                         </div>
                      </div>
@@ -188,7 +188,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                            <div className="flex items-center gap-3">
                               <Sun size={24} className="text-emerald-500" />
                               <div>
-                                 <p className="font-black text-gray-800">Solar Eco</p>
+                                 <p className="font-black text-gray-800">Eco Charge</p>
                                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Village Exclusive</p>
                               </div>
                            </div>
@@ -199,8 +199,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
                            <div className="flex items-center gap-3">
                               <Zap size={24} className="text-yellow-500" />
                               <div>
-                                 <p className="font-black text-gray-800">Hyper Synergy</p>
-                                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Fast DC Network</p>
+                                 <p className="font-black text-gray-800">Turbo Charge</p>
+                                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Fast Network</p>
                               </div>
                            </div>
                            <span className="text-gray-900 font-black text-sm tracking-tighter">RM {PRICING.fast.toFixed(2)}/kWh</span>

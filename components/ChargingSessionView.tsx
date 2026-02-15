@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Zap, CheckCircle2, Lock, Unlock, Power, Loader2, Cpu, ShieldCheck, Eye } from 'lucide-react';
+import { Zap, CheckCircle2, Lock, Unlock, Power, Loader2 } from 'lucide-react';
 import { Session } from '../types';
 
 interface ChargingSessionViewProps {
@@ -10,7 +10,7 @@ interface ChargingSessionViewProps {
   isHardwareConnected: boolean;
 }
 
-export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ activeSession, toggleLock, endSession, isHardwareConnected }) => {
+export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ activeSession, toggleLock, endSession }) => {
   const [isLocking, setIsLocking] = useState(false);
 
   if (!activeSession) return <div className="p-10 text-center text-gray-500">No active session found.</div>;
@@ -29,17 +29,12 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
     <div className="w-full max-w-md mx-auto h-full flex flex-col justify-between p-8 animate-fade-in-down pb-40">
       
       {/* Dynamic Status Header */}
-      <div className="flex justify-between items-center py-2 relative">
-         <div className="bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
+      <div className="flex justify-center items-center py-2 relative">
+         <div className="bg-white/90 backdrop-blur-md px-6 py-2.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-emerald-500 animate-pulse'}`}></div>
             <span className="text-[10px] font-black text-gray-800 uppercase tracking-[0.2em]">
                {isCompleted ? "Session Done" : "Charging Active"}
             </span>
-         </div>
-         
-         <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isHardwareConnected ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-400'}`}>
-            <Eye size={14} className={isHardwareConnected ? 'text-emerald-500' : ''} />
-            {isHardwareConnected ? 'IR Detection On' : 'Sensors Off'}
          </div>
       </div>
 
@@ -70,7 +65,7 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                   {percentage}<span className="text-3xl align-top ml-1 opacity-40">%</span>
                </div>
                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-3">
-                  {activeSession.mode === 'fast' ? "Hyper" : "Solar"} Mode
+                  {activeSession.mode === 'fast' ? "Turbo" : "Eco"} Charge
                </span>
             </div>
          </div>
@@ -110,9 +105,8 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                )}
                <div className="flex flex-col items-start leading-none">
                   <span className="text-[10px] font-black">
-                     {isLocking ? (activeSession.isLocked ? "Unlocking..." : "Securing...") : (activeSession.isLocked ? "DOCKED & SECURED" : "RELEASE DOCK")}
+                     {isLocking ? (activeSession.isLocked ? "Releasing..." : "Locking Hub...") : (activeSession.isLocked ? "HUB CONNECTED" : "UNLOCK HUB")}
                   </span>
-                  {!isLocking && <span className="text-[7px] font-black opacity-50 mt-1 uppercase tracking-widest">IR Auto-Lock Active</span>}
                </div>
             </button>
          )}
@@ -127,10 +121,9 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({ active
                 }`}
              >
                 {isCompleted ? <CheckCircle2 size={24} /> : <Power size={24} />}
-                {isCompleted ? "CLOSE SESSION" : "ABORT CHARGING"}
+                {isCompleted ? "CLOSE SESSION" : "END CHARGING"}
              </button>
          </div>
-         {!isCompleted && <p className="text-center text-[8px] font-black text-gray-400 uppercase tracking-widest">Servo will Auto-Lock when scooter enters</p>}
       </div>
     </div>
   );

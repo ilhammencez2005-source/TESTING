@@ -8,8 +8,8 @@ import { BookingView } from './components/BookingView';
 import { ChargingSessionView } from './components/ChargingSessionView';
 import { GeminiAssistant } from './components/GeminiAssistant';
 import { HistoryView } from './components/HistoryView';
-import { STATIONS } from './constants';
-import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt } from './types';
+import { STATIONS, MOCK_HISTORY } from './constants';
+import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt, ChargingHistoryItem } from './types';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('home'); 
@@ -20,19 +20,64 @@ export default function App() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null); 
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [chargingHistory, setChargingHistory] = useState<ChargingHistoryItem[]>([]);
   
   // HARDWARE CONFIGURATION
   const [isHardwareOnline, setIsHardwareOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
   
   const apiPath = '/api/status';
-  const fullUrl = `https://solarsynergy-nine.vercel.app/api/status`;
   const [stationId, setStationId] = useState('ETP-G17-HUB');
 
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
   };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const d = R * c;
+    return d < 1 ? `${(d * 1000).toFixed(0)} m away` : `${d.toFixed(1)} km away`;
+  };
+
+  const handleLocateMe = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() });
+        showNotification("Location Updated");
+      }, (err) => {
+        showNotification("Location Access Denied");
+      });
+    }
+  };
+
+  useEffect(() => {
+    handleLocateMe();
+    const savedHistory = localStorage.getItem('synergy_history');
+    if (savedHistory) setChargingHistory(JSON.parse(savedHistory));
+    
+    const savedBalance = localStorage.getItem('synergy_balance');
+    if (savedBalance) setWalletBalance(parseFloat(savedBalance));
+  }, []);
+
+  const dynamicStations = STATIONS.map(station => {
+    if (!userLocation) return station;
+    const [sLat, sLng] = station.coordinates.split(',').map(Number);
+    return {
+      ...station,
+      distance: calculateDistance(userLocation.lat, userLocation.lng, sLat, sLng)
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('synergy_balance', walletBalance.toString());
+  }, [walletBalance]);
 
   const checkHardwareStatus = async () => {
     setSyncing(true);
@@ -104,9 +149,28 @@ export default function App() {
     if (!cur) return;
     sendCommand('UNLOCK', true);
     const refund = cur.preAuthAmount - cur.cost;
+    const actualCost = cur.cost;
+    const energyConsumed = cur.cost / 1.2;
     setWalletBalance(p => p + refund);
-    setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, totalEnergy: `${(cur.cost / 1.2).toFixed(2)}kWh`, mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: refund });
+    const historyItem: ChargingHistoryItem = {
+      id: Date.now(),
+      stationName: cur.station.name,
+      date: new Date().toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      amount: actualCost,
+      energy: energyConsumed,
+      status: 'Completed'
+    };
+    const newHistory = [historyItem, ...chargingHistory];
+    setChargingHistory(newHistory);
+    localStorage.setItem('synergy_history', JSON.stringify(newHistory));
+    setReceipt({ stationName: cur.station.name, date: new Date().toLocaleString(), duration: `${Math.floor(cur.timeElapsed / 60)}m ${cur.timeElapsed % 60}s`, totalEnergy: `${energyConsumed.toFixed(2)}kWh`, mode: cur.mode, cost: cur.cost, paid: cur.preAuthAmount, refund: refund });
     setActiveSession(null); setSelectedStation(null); setView('home');
+  };
+
+  const clearHistory = () => {
+    setChargingHistory([]);
+    localStorage.removeItem('synergy_history');
+    showNotification("History Cleared");
   };
 
   return (
@@ -125,21 +189,11 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto relative w-full scrollbar-hide">
           {view === 'home' && (
-            <HomeView userLocation={userLocation} handleLocateMe={() => {}} stations={STATIONS} onBookStation={(s) => { setSelectedStation(s); setView('booking'); }} onPrebook={(s) => { setSelectedStation(s); setView('booking'); }} />
+            <HomeView userLocation={userLocation} handleLocateMe={handleLocateMe} stations={dynamicStations} onBookStation={(s) => { setSelectedStation(s); setView('booking'); }} onPrebook={(s) => { setSelectedStation(s); setView('booking'); }} />
           )}
-          
-          {view === 'booking' && selectedStation && (
-            <BookingView selectedStation={selectedStation} onBack={() => { setView('home'); setSelectedStation(null); }} onStartCharging={startCharging} />
-          )}
-
-          {view === 'charging' && (
-            <ChargingSessionView activeSession={activeSession} toggleLock={toggleLock} endSession={() => endSession()} isHardwareConnected={isHardwareOnline} />
-          )}
-
-          {view === 'history' && (
-            <HistoryView />
-          )}
-          
+          {view === 'booking' && selectedStation && <BookingView selectedStation={selectedStation} onBack={() => { setView('home'); setSelectedStation(null); }} onStartCharging={startCharging} />}
+          {view === 'charging' && <ChargingSessionView activeSession={activeSession} toggleLock={toggleLock} endSession={() => endSession()} isHardwareConnected={isHardwareOnline} />}
+          {view === 'history' && <HistoryView history={chargingHistory} onClearHistory={clearHistory} />}
           {view === 'profile' && (
             <div className="p-6 flex flex-col items-center max-w-md mx-auto animate-slide-up pb-44">
               <div className="w-full bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 flex flex-col items-center text-center">
@@ -147,14 +201,10 @@ export default function App() {
                     <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center border-4 border-white shadow-lg overflow-hidden">
                         <User size={48} className="text-emerald-600"/>
                     </div>
-                    <div className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 border-4 border-white rounded-full flex items-center justify-center text-white shadow-sm">
-                        <CheckCircle2 size={14} />
-                    </div>
                   </div>
                   <h2 className="text-2xl font-black tracking-tighter text-gray-900">Ilhammencez</h2>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">UTP Student • Group 17</p>
               </div>
-
               <div className="w-full mt-4 bg-white rounded-[3rem] p-6 shadow-sm border border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isHardwareOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
@@ -169,7 +219,6 @@ export default function App() {
                 </div>
                 <div className={`w-3 h-3 rounded-full ${isHardwareOnline ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-gray-300'}`}></div>
               </div>
-
               <div className="w-full bg-white rounded-[3rem] p-8 border border-gray-100 mt-4 shadow-sm">
                  <div className="flex justify-between items-center mb-6">
                     <div>
@@ -180,12 +229,8 @@ export default function App() {
                  </div>
                  <button onClick={() => setShowTopUpModal(true)} className="w-full bg-gray-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-widest shadow-xl">Top Up Wallet</button>
               </div>
-
               <div className="w-full mt-4">
-                <button 
-                  onClick={() => setView('history')}
-                  className="w-full bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col items-center gap-2 group transition-all active:scale-95"
-                >
+                <button onClick={() => setView('history')} className="w-full bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col items-center gap-2 group transition-all active:scale-95">
                   <History className="text-emerald-600 group-hover:scale-110 transition-transform" />
                   <span className="text-[10px] font-black uppercase tracking-widest">View Charging History</span>
                 </button>

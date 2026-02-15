@@ -33,7 +33,7 @@ export interface Session {
   chargeLevel: number;
   cost: number;
   preAuthAmount: number;
-  durationLimit: number | 'full'; // minutes or 'full'
+  durationLimit: number | 'full'; 
   timeElapsed: number;
   isLocked: boolean;
 }

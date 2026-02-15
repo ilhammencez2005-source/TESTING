@@ -6,7 +6,7 @@ export const STATIONS: Station[] = [
     id: 1, 
     name: "Village 3C", 
     address: "9XP8+RH, 31750, Perak", 
-    distance: "433 m away", 
+    distance: "Calculating...", 
     slots: 2, 
     totalSlots: 2,
     type: "Type 2 (22.0kW)",
@@ -23,7 +23,7 @@ export const STATIONS: Station[] = [
     id: 2, 
     name: "Village 4", 
     address: "Universiti Teknologi PETRONAS, Village 4",
-    distance: "1.2 km away", 
+    distance: "Calculating...", 
     slots: 0, 
     totalSlots: 2,
     type: "Type 2 (11.0kW)",
@@ -39,41 +39,6 @@ export const STATIONS: Station[] = [
 ];
 
 export const PRICING = {
-  fast: 1.20, // RM per kWh
-  normal: 0,   // Free
+  fast: 1.20, // RM per kWh (Turbo Charge)
+  normal: 0,   // Free (Eco Charge)
 };
-
-export const MOCK_HISTORY: ChargingHistoryItem[] = [
-  { 
-    id: 1, 
-    stationName: "Village 3C Hub", 
-    date: "24 Oct 2024, 02:45 PM", 
-    amount: 14.20, 
-    energy: 11.8, 
-    status: 'Completed' 
-  },
-  { 
-    id: 2, 
-    stationName: "Village 4 Dock", 
-    date: "22 Oct 2024, 09:12 AM", 
-    amount: 0.00, 
-    energy: 4.5, 
-    status: 'Completed' 
-  },
-  { 
-    id: 3, 
-    stationName: "Village 3C Hub", 
-    date: "19 Oct 2024, 11:30 PM", 
-    amount: 8.50, 
-    energy: 7.1, 
-    status: 'Completed' 
-  },
-  { 
-    id: 4, 
-    stationName: "Village 4 Dock", 
-    date: "15 Oct 2024, 05:20 PM", 
-    amount: 12.00, 
-    energy: 10.0, 
-    status: 'Completed' 
-  },
-];

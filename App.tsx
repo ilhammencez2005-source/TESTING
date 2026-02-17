@@ -35,6 +35,12 @@ export default function App() {
   };
 
   const connectBluetooth = async () => {
+    // Fix: cast navigator to any to access the non-standard bluetooth property in TypeScript
+    if (!(navigator as any).bluetooth) {
+      showNotification("BROWSER NOT SUPPORTED");
+      return;
+    }
+
     setIsBleConnecting(true);
     try {
       const device = await (navigator as any).bluetooth.requestDevice({
@@ -54,8 +60,17 @@ export default function App() {
           showNotification("HUB DISCONNECTED");
         });
       }
-    } catch (error) {
-      showNotification("BT FAILED");
+    } catch (error: any) {
+      console.error("BLE Error:", error);
+      if (error.name === 'NotFoundError') {
+        showNotification("HUB OUT OF RANGE");
+      } else if (error.name === 'SecurityError') {
+        showNotification("HTTPS REQUIRED");
+      } else if (error.name === 'NotAllowedError') {
+        showNotification("PERMISSION DENIED");
+      } else {
+        showNotification("BT CONNECT FAIL");
+      }
     } finally {
       setIsBleConnecting(false);
     }
@@ -74,15 +89,25 @@ export default function App() {
       await bleCharacteristic.writeValue(encoder.encode(command));
       return true;
     } catch (error) {
+      showNotification("COMMAND FAILED");
       return false;
     }
   };
 
   useEffect(() => {
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() });
-      });
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation({ 
+            lat: pos.coords.latitude, 
+            lng: pos.coords.longitude, 
+            timestamp: Date.now() 
+          });
+        },
+        (err) => console.error("Location Error:", err),
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
     }
   }, []);
 

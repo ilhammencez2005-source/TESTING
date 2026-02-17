@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { MapPin, Crosshair, CalendarClock, Zap, ArrowRight, Sun, Leaf, X } from 'lucide-react';
 import { Station, UserLocation } from '../types';
 import { PRICING } from '../constants';
@@ -15,10 +15,10 @@ interface HomeViewProps {
 export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe, stations, onBookStation, onPrebook }) => {
   const [detailStation, setDetailStation] = useState<Station | null>(null);
 
-  // Accurate Distance Calculation
+  // Accurate Distance Calculation using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, stationCoords: string) => {
     const [lat2, lon2] = stationCoords.split(',').map(Number);
-    const R = 6371; // km
+    const R = 6371; // radius of Earth in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -29,12 +29,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
     const d = R * c;
     
     if (d < 1) return `${(d * 1000).toFixed(0)}m`;
+    if (d > 1000) return `>1000km`; // Sanity check for extreme distances
     return `${d.toFixed(1)}km`;
   };
 
-  const mapSrc = userLocation
-    ? `https://maps.google.com/maps?q=${userLocation.lat},${userLocation.lng}&hl=en&z=15&output=embed&iwloc=near`
-    : `https://maps.google.com/maps?q=4.3835,100.9638&hl=en&z=17&output=embed&iwloc=near`;
+  const mapSrc = useMemo(() => {
+    return userLocation
+      ? `https://maps.google.com/maps?q=${userLocation.lat},${userLocation.lng}&hl=en&z=15&output=embed&iwloc=near`
+      : `https://maps.google.com/maps?q=4.3835,100.9638&hl=en&z=17&output=embed&iwloc=near`;
+  }, [userLocation?.lat, userLocation?.lng]);
 
   return (
     <div className="bg-gray-50 min-h-full flex flex-col pb-40">
@@ -60,11 +63,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ userLocation, handleLocateMe
        {/* List of Hubs */}
        <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 relative z-10 space-y-6">
           <div className="space-y-4">
-             <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] ml-2">Nearby Charging Hubs</h2>
+             <div className="flex items-center justify-between px-2">
+               <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Nearby Charging Hubs</h2>
+               {!userLocation && (
+                 <span className="text-[8px] font-black text-emerald-500 animate-pulse uppercase tracking-widest">Waiting for Location...</span>
+               )}
+             </div>
+             
              {stations.map(station => {
                 const displayDistance = userLocation 
                   ? calculateDistance(userLocation.lat, userLocation.lng, station.coordinates)
-                  : "Calculating..."; // Show calculating instead of fallback if location unknown
+                  : "Locating..."; // Avoid hardcoded values when location is unknown
 
                 return (
                   <div key={station.id} className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">

@@ -10,12 +10,11 @@ interface BookingViewProps {
   isPrebook?: boolean;
 }
 
-type BookingStep = 'mode' | 'slot' | 'limit';
+type BookingStep = 'mode' | 'slot';
 
 export const BookingView: React.FC<BookingViewProps> = ({ selectedStation, onBack, onStartCharging, isPrebook }) => {
   const [step, setStep] = useState<BookingStep>('mode');
   const [selectedMode, setSelectedMode] = useState<ChargingMode | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const slots = Array.from({ length: selectedStation.totalSlots }, (_, i) => ({
     id: String.fromCharCode(65 + i),
@@ -28,21 +27,17 @@ export const BookingView: React.FC<BookingViewProps> = ({ selectedStation, onBac
   };
 
   const handleSlotSelect = (slotId: string) => {
-    setSelectedSlot(slotId);
-    setStep('limit');
-  };
-
-  const handleLimitSelect = (duration: number | 'full') => {
-    if (!selectedMode || !selectedSlot) return;
-    let preAuth = selectedMode === 'fast' ? (duration === 'full' ? 50.00 : 15.00) : 0;
-    onStartCharging(selectedMode, selectedSlot, duration, preAuth);
+    if (!selectedMode) return;
+    // Removed duration limit - default to 'full' for maximum synergy
+    const preAuth = selectedMode === 'fast' ? 50.00 : 0;
+    onStartCharging(selectedMode, slotId, 'full', preAuth);
   };
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="bg-white shadow-sm z-20 border-b border-gray-200 shrink-0">
          <div className="max-w-4xl mx-auto px-6 py-5 flex items-center gap-4">
-            <button onClick={step === 'mode' ? onBack : () => setStep(step === 'limit' ? 'slot' : 'mode')} className="p-2 hover:bg-gray-100 rounded-full">
+            <button onClick={step === 'mode' ? onBack : () => setStep('mode')} className="p-2 hover:bg-gray-100 rounded-full">
                <ArrowLeft size={24} />
             </button>
             <div>
@@ -90,30 +85,6 @@ export const BookingView: React.FC<BookingViewProps> = ({ selectedStation, onBac
                      <span className="font-black text-xl text-gray-900">Slot {slot.id}</span>
                    </button>
                  ))}
-              </div>
-           </div>
-         )}
-
-         {step === 'limit' && (
-           <div className="space-y-4 animate-slide-up">
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Charging Limit</h3>
-              <div className="grid grid-cols-1 gap-4">
-                 {[15, 30, 60].map(mins => (
-                   <button key={mins} onClick={() => handleLimitSelect(mins)} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between active:scale-95 transition-all">
-                      <div className="flex items-center gap-4">
-                         <div className="p-3 bg-gray-50 rounded-2xl"><Clock size={20} className="text-gray-400" /></div>
-                         <span className="font-black text-gray-900 uppercase tracking-tight">{mins} Minutes</span>
-                      </div>
-                      <ArrowRight size={20} className="text-emerald-600" />
-                   </button>
-                 ))}
-                 <button onClick={() => handleLimitSelect('full')} className="bg-emerald-600 p-8 rounded-[3rem] text-white flex items-center justify-between active:scale-95 transition-all shadow-xl shadow-emerald-100">
-                    <div className="flex items-center gap-4">
-                       <div className="p-3 bg-white/20 rounded-2xl"><CheckCircle2 size={24} /></div>
-                       <span className="font-black text-xl tracking-tight uppercase">Full Synergy Battery</span>
-                    </div>
-                    <ArrowRight size={24} />
-                 </button>
               </div>
            </div>
          )}

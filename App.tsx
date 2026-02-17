@@ -12,7 +12,6 @@ import { ProfileView } from './components/ProfileView';
 import { STATIONS } from './constants';
 import { Station, Session, UserLocation, ViewState, ChargingMode, Receipt, ChargingHistoryItem } from './types';
 
-// BLE UUID constants
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
@@ -26,7 +25,6 @@ export default function App() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [chargingHistory, setChargingHistory] = useState<ChargingHistoryItem[]>([]);
   
-  // Bluetooth State
   const [bleDevice, setBleDevice] = useState<any | null>(null);
   const [bleCharacteristic, setBleCharacteristic] = useState<any | null>(null);
   const [isBleConnecting, setIsBleConnecting] = useState(false);
@@ -43,16 +41,13 @@ export default function App() {
         filters: [{ name: 'SolarSynergyHub' }],
         optionalServices: [SERVICE_UUID]
       });
-
       const server = await device.gatt?.connect();
       const service = await server?.getPrimaryService(SERVICE_UUID);
       const characteristic = await service?.getCharacteristic(CHARACTERISTIC_UUID);
-
       if (characteristic) {
         setBleDevice(device);
         setBleCharacteristic(characteristic);
-        showNotification("HUB PAIRED VIA BT");
-        
+        showNotification("HUB PAIRED");
         device.addEventListener('gattserverdisconnected', () => {
           setBleDevice(null);
           setBleCharacteristic(null);
@@ -60,35 +55,25 @@ export default function App() {
         });
       }
     } catch (error) {
-      console.error("BLE Error:", error);
-      showNotification("BT CONNECTION FAILED");
+      showNotification("BT FAILED");
     } finally {
       setIsBleConnecting(false);
     }
   };
 
   const disconnectBluetooth = () => {
-    if (bleDevice?.gatt?.connected) {
-      bleDevice.gatt.disconnect();
-    }
+    if (bleDevice?.gatt?.connected) bleDevice.gatt.disconnect();
     setBleDevice(null);
     setBleCharacteristic(null);
-    showNotification("HUB UNPAIRED");
   };
 
   const sendBleCommand = async (command: 'UNLOCK' | 'LOCK') => {
-    if (!bleCharacteristic) {
-      showNotification("PAIR HUB IN PROFILE FIRST");
-      return false;
-    }
+    if (!bleCharacteristic) return false;
     try {
       const encoder = new TextEncoder();
       await bleCharacteristic.writeValue(encoder.encode(command));
-      showNotification(`${command} SENT`);
       return true;
     } catch (error) {
-      console.error("BLE Send Error:", error);
-      showNotification("COMMAND FAILED");
       return false;
     }
   };
@@ -116,8 +101,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeSession?.status]);
 
-  const startCharging = (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
+  const startCharging = async (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
     if (preAuth > walletBalance) return showNotification("INSUFFICIENT CREDITS");
+    
+    // Automatic Hardware Lock
+    await sendBleCommand('LOCK');
+    
     setWalletBalance(p => p - preAuth);
     setActiveSession({ 
       station: selectedStation!, 
@@ -127,24 +116,11 @@ export default function App() {
     setView('charging');
   };
 
-  const toggleLock = async () => {
-    if (!activeSession) return;
-    const nextLockedState = !activeSession.isLocked;
-    const command = nextLockedState ? 'LOCK' : 'UNLOCK';
-    
-    const success = await sendBleCommand(command);
-    if (success) {
-      setActiveSession(prev => prev ? { ...prev, isLocked: nextLockedState } : null);
-    }
-  };
-
   const endSession = async (cur = activeSession) => {
     if (!cur) return;
     
-    // Auto-unlock hardware if connected
-    if (bleCharacteristic) {
-      await sendBleCommand('UNLOCK');
-    }
+    // Automatic Hardware Unlock
+    await sendBleCommand('UNLOCK');
 
     const refund = cur.preAuthAmount - cur.cost;
     const energy = cur.cost > 0 ? cur.cost / 1.2 : 4.5; 
@@ -200,15 +176,13 @@ export default function App() {
               onPrebook={(s) => { setSelectedStation(s); setView('booking'); }} 
             />
           )}
-          
           {view === 'booking' && selectedStation && (
             <BookingView selectedStation={selectedStation} onBack={() => { setView('home'); setSelectedStation(null); }} onStartCharging={startCharging} />
           )}
-
           {view === 'charging' && (
             <ChargingSessionView 
               activeSession={activeSession} 
-              toggleLock={toggleLock} 
+              toggleLock={() => {}} 
               endSession={() => endSession()} 
               isBleConnected={!!bleCharacteristic}
               isBleConnecting={isBleConnecting}

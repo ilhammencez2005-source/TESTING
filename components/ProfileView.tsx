@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { User, Wallet, ShieldCheck, Bluetooth, Loader2, LogOut, ChevronRight, Zap, Lock, Unlock } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Wallet, ShieldCheck, Bluetooth, Loader2, LogOut, ChevronRight, Zap, QrCode } from 'lucide-react';
 
 interface ProfileViewProps {
   walletBalance: number;
@@ -18,9 +18,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   isBleConnecting, 
   bleDeviceName, 
   onConnectBle,
-  onDisconnectBle,
-  onTestCommand
+  onDisconnectBle
 }) => {
+  const [showQr, setShowQr] = useState(false);
+
   return (
     <div className="p-6 max-w-2xl mx-auto animate-slide-up pb-44 space-y-8">
       {/* User Header */}
@@ -29,16 +30,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <User size={40} />
         </div>
         <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-1">SYNERGY USER</h2>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-1">Ilhammencez</h2>
           <div className="flex items-center gap-2">
             <ShieldCheck size={14} className="text-emerald-500" />
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Verified Account</span>
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">ID: 22010123</span>
           </div>
         </div>
       </div>
 
-      {/* Wallet Card */}
-      <div className="bg-gray-900 rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-900/10">
+      {/* Wallet Card with QR */}
+      <div className="bg-gray-900 rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl">
         <div className="absolute right-0 top-0 p-8 opacity-10">
           <Wallet size={80} />
         </div>
@@ -47,14 +48,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <span className="text-gray-400 text-lg font-bold">RM</span>
           <span className="text-5xl font-black tracking-tighter tabular-nums">{walletBalance.toFixed(2)}</span>
         </div>
-        <button className="w-full bg-emerald-600 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">
-          Top Up Balance
+        <button 
+           onClick={() => setShowQr(!showQr)}
+           className="w-full bg-emerald-600 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"
+        >
+          <QrCode size={16} />
+          {showQr ? "HIDE RELOAD DETAILS" : "TOP UP WALLET"}
         </button>
+
+        {showQr && (
+           <div className="mt-6 bg-white rounded-3xl p-6 text-center animate-fade-in-down border border-emerald-100 shadow-xl">
+              <div className="w-48 h-48 bg-white rounded-2xl mx-auto flex items-center justify-center mb-4 p-2">
+                {/* Specific QR Code for User */}
+                <img 
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=SynergyTopUp-Ilhammencez-22010123" 
+                  alt="Reload QR" 
+                  className="w-full h-full object-contain" 
+                />
+              </div>
+              <p className="text-gray-900 font-black text-[11px] uppercase tracking-widest">Kiosk Ready</p>
+              <p className="text-gray-400 text-[9px] mt-1 uppercase font-bold tracking-wider">Ilhammencez • 22010123</p>
+           </div>
+        )}
       </div>
 
-      {/* Hardware Pairing Section */}
+      {/* Hardware Pairing - Technical text removed */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] ml-2">Hardware Connection</h3>
+        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] ml-2">Smart Hub</h3>
         <div className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-sm space-y-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -62,41 +82,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <Bluetooth size={24} className={isBleConnecting ? 'animate-spin' : ''} />
               </div>
               <div>
-                <p className="font-black text-gray-900 uppercase tracking-tight">Synergy Hub</p>
+                <p className="font-black text-gray-900 uppercase tracking-tight">Hub Link</p>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                  {isBleConnected ? `Connected: ${bleDeviceName || "SolarSynergyHub"}` : "Direct Bluetooth Pairing"}
+                  {isBleConnected ? `Linked: ${bleDeviceName || "SolarSynergyHub"}` : "Unlinked"}
                 </p>
               </div>
             </div>
-            {isBleConnected && (
-              <div className="bg-emerald-100 px-3 py-1 rounded-lg animate-pulse">
-                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Linked</span>
-              </div>
-            )}
           </div>
-
-          {/* Test Controls for D4 Pin */}
-          {isBleConnected && (
-            <div className="space-y-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Pin D4 Controls</p>
-              <div className="grid grid-cols-2 gap-3 pb-2">
-                <button 
-                    onClick={() => onTestCommand('LOCK')}
-                    className="bg-gray-900 text-white py-5 rounded-2xl flex flex-col items-center gap-2 active:scale-95 transition-all shadow-lg"
-                >
-                    <Lock size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Lock Hub</span>
-                </button>
-                <button 
-                    onClick={() => onTestCommand('UNLOCK')}
-                    className="bg-emerald-600 text-white py-5 rounded-2xl flex flex-col items-center gap-2 active:scale-95 transition-all shadow-lg"
-                >
-                    <Unlock size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Unlock Hub</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="pt-2">
             {isBleConnected ? (
@@ -104,7 +96,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 onClick={onDisconnectBle}
                 className="w-full py-5 rounded-[2rem] border-2 border-rose-500 text-rose-600 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all"
               >
-                UNPAIR HUB
+                UNLINK HUB
               </button>
             ) : (
               <button 
@@ -113,27 +105,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 shadow-xl transition-all disabled:opacity-50"
               >
                 {isBleConnecting ? <Loader2 size={16} className="animate-spin" /> : <Bluetooth size={16} />}
-                {isBleConnecting ? "LINKING..." : "PAIR WITH HUB"}
+                {isBleConnecting ? "LINKING..." : "LINK WITH HUB"}
               </button>
             )}
           </div>
-          
-          <p className="text-[8px] text-center text-gray-400 font-black uppercase tracking-widest leading-relaxed px-4">
-            Connect your servo signal wire to pin D4 on the ESP32.
-          </p>
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="pt-4 space-y-3">
-        <button className="w-full flex items-center justify-between p-6 bg-white rounded-2xl border border-gray-100 text-gray-400 font-black uppercase text-[10px] tracking-widest">
-          <div className="flex items-center gap-3 text-gray-600">
-            <LogOut size={18} />
-            Logout Account
-          </div>
-          <ChevronRight size={16} />
-        </button>
-        <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.0</p>
+      <div className="pt-4">
+        <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.2</p>
       </div>
     </div>
   );

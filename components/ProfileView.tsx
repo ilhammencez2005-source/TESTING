@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, Wallet, ShieldCheck, Bluetooth, Loader2, LogOut, ChevronRight, Zap, QrCode, Lock, Unlock, AlertCircle } from 'lucide-react';
+import { User, Wallet, ShieldCheck, Bluetooth, Loader2, LogOut, ChevronRight, Zap, QrCode, Lock, Unlock, AlertCircle, Info, Volume2 } from 'lucide-react';
 
 interface ProfileViewProps {
   walletBalance: number;
@@ -22,7 +22,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onTestCommand
 }) => {
   const [showQr, setShowQr] = useState(false);
-  // Fix: Using type assertion for navigator.bluetooth to satisfy TypeScript
+  const [showTips, setShowTips] = useState(false);
+  
   const isBluetoothSupported = typeof navigator !== 'undefined' && !!(navigator as any).bluetooth;
 
   return (
@@ -41,7 +42,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      {/* Wallet Card with QR */}
+      {/* Wallet Card */}
       <div className="bg-gray-900 rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl">
         <div className="absolute right-0 top-0 p-8 opacity-10">
           <Wallet size={80} />
@@ -81,14 +82,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Hardware Pairing & Controls */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] ml-2">Hardware Hub (Pin D4)</h3>
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Hardware Hub Config</h3>
+           <button onClick={() => setShowTips(!showTips)} className="text-emerald-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+             <Info size={14} /> System Specs
+           </button>
+        </div>
         
+        {showTips && (
+          <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2.5rem] animate-fade-in-down text-emerald-900 space-y-4">
+             <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                   <Zap size={12} /> Pin Mapping:
+                </p>
+                <ul className="text-[9px] font-bold space-y-1 uppercase leading-relaxed opacity-80 pl-2">
+                   <li>• Servo Motor (Lock): <span className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 ml-1">Pin D4</span></li>
+                   <li>• Piezo Buzzer (Alert): <span className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 ml-1">Pin D2</span></li>
+                </ul>
+             </div>
+             <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                   <Volume2 size={12} /> Synergy Alerts:
+                </p>
+                <ul className="text-[9px] font-bold space-y-1 uppercase leading-relaxed opacity-80 pl-2">
+                   <li>• Unlock: 2s Continuous Tone</li>
+                   <li>• Lock: Short Double Beep</li>
+                </ul>
+             </div>
+          </div>
+        )}
+
         {!isBluetoothSupported && (
           <div className="bg-rose-50 border border-rose-100 p-6 rounded-[2.5rem] flex items-center gap-4 text-rose-700 mb-4 animate-fade-in-down">
             <AlertCircle className="shrink-0" size={24} />
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest">Browser Not Supported</p>
-              <p className="text-[9px] font-bold mt-1 leading-tight uppercase">iPhone users must use <span className="underline">Bluefy</span> app. Android users must use Chrome.</p>
+              <p className="text-[9px] font-bold mt-1 leading-tight uppercase">iPhone users must use <span className="underline">Bluefy</span> app.</p>
             </div>
           </div>
         )}
@@ -145,9 +174,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   {isBleConnecting ? <Loader2 size={16} className="animate-spin" /> : <Bluetooth size={16} />}
                   {isBleConnecting ? "LINKING..." : "LINK WITH HUB"}
                 </button>
-                <p className="text-[8px] text-center text-gray-400 font-black uppercase tracking-[0.2em]">
-                  Note: Stay within 10m range of the hardware
-                </p>
               </div>
             )}
           </div>
@@ -155,7 +181,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       <div className="pt-4">
-        <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.6</p>
+        <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.8</p>
       </div>
     </div>
   );

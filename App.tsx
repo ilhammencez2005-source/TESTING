@@ -31,13 +31,20 @@ export default function App() {
 
   const showNotification = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 3500);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const connectBluetooth = async () => {
-    // Fix: cast navigator to any to access the non-standard bluetooth property in TypeScript
+    // 1. Check Browser Capability
     if (!(navigator as any).bluetooth) {
-      showNotification("BROWSER NOT SUPPORTED");
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      showNotification(isIOS ? "USE BLUEFY APP ON IOS" : "BROWSER NOT SUPPORTED");
+      return;
+    }
+
+    // 2. Check Security Context (HTTPS)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      showNotification("HTTPS REQUIRED FOR BT");
       return;
     }
 
@@ -47,13 +54,16 @@ export default function App() {
         filters: [{ name: 'SolarSynergyHub' }],
         optionalServices: [SERVICE_UUID]
       });
+      
       const server = await device.gatt?.connect();
       const service = await server?.getPrimaryService(SERVICE_UUID);
       const characteristic = await service?.getCharacteristic(CHARACTERISTIC_UUID);
+      
       if (characteristic) {
         setBleDevice(device);
         setBleCharacteristic(characteristic);
-        showNotification("HUB PAIRED");
+        showNotification("HUB PAIRED SUCCESSFULLY");
+        
         device.addEventListener('gattserverdisconnected', () => {
           setBleDevice(null);
           setBleCharacteristic(null);
@@ -61,15 +71,19 @@ export default function App() {
         });
       }
     } catch (error: any) {
-      console.error("BLE Error:", error);
+      console.error("BLE Error Detail:", error);
+      
+      // Handle Specific BLE Error Names
       if (error.name === 'NotFoundError') {
-        showNotification("HUB OUT OF RANGE");
+        showNotification("DEVICE NOT FOUND/CANCELLED");
       } else if (error.name === 'SecurityError') {
-        showNotification("HTTPS REQUIRED");
+        showNotification("SECURITY BLOCK (USE HTTPS)");
       } else if (error.name === 'NotAllowedError') {
-        showNotification("PERMISSION DENIED");
+        showNotification("BT PERMISSION DENIED");
+      } else if (error.message?.includes('User cancelled')) {
+        // Silently handle user cancellation
       } else {
-        showNotification("BT CONNECT FAIL");
+        showNotification(`BT FAIL: ${error.message?.substring(0, 15) || "UNKNOWN"}`);
       }
     } finally {
       setIsBleConnecting(false);
@@ -89,7 +103,7 @@ export default function App() {
       await bleCharacteristic.writeValue(encoder.encode(command));
       return true;
     } catch (error) {
-      showNotification("COMMAND FAILED");
+      showNotification("HARDWARE CMD FAILED");
       return false;
     }
   };
@@ -130,7 +144,10 @@ export default function App() {
     if (preAuth > walletBalance) return showNotification("INSUFFICIENT CREDITS");
     
     // Automatic Hardware Lock
-    await sendBleCommand('LOCK');
+    const locked = await sendBleCommand('LOCK');
+    if (!locked && bleCharacteristic) {
+      showNotification("WARNING: HUB FAILED TO LOCK");
+    }
     
     setWalletBalance(p => p - preAuth);
     setActiveSession({ 

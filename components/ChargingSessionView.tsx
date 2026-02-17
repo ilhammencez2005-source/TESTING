@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Zap, CheckCircle2, ShieldCheck, Power } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, CheckCircle2, ShieldCheck, Power, Volume2, Loader2 } from 'lucide-react';
 import { Session } from '../types';
 
 interface ChargingSessionViewProps {
@@ -17,9 +17,20 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
   endSession, 
   isBleConnected
 }) => {
+  const [showBuzzerAlert, setShowBuzzerAlert] = useState(false);
+
   if (!activeSession) return <div className="p-10 text-center text-gray-500 font-black uppercase tracking-widest">No active session.</div>;
+  
   const percentage = Math.round(activeSession.chargeLevel);
   const isCompleted = activeSession.status === 'completed';
+
+  const handleEndSession = () => {
+    // Visual sync with physical buzzer (2 sec)
+    setShowBuzzerAlert(true);
+    setTimeout(() => {
+      endSession();
+    }, 2000);
+  };
 
   return (
     <div className="w-full max-w-md mx-auto h-full flex flex-col justify-between p-8 animate-fade-in-down pb-40">
@@ -43,6 +54,13 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
 
       {/* Progress Ring */}
       <div className="flex-1 flex flex-col items-center justify-center relative my-8">
+         {showBuzzerAlert && (
+            <div className="absolute top-0 z-20 bg-emerald-600 text-white px-6 py-3 rounded-full flex items-center gap-3 animate-bounce shadow-2xl">
+               <Volume2 size={20} className="animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Synergy Alert: Unlocking...</span>
+            </div>
+         )}
+         
          <div className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center">
             <svg className="w-full h-full transform -rotate-90 drop-shadow-2xl">
                <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100" />
@@ -89,16 +107,17 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
 
          <div className="pt-2">
              <button 
-                onClick={endSession} 
+                onClick={handleEndSession} 
+                disabled={showBuzzerAlert}
                 className={`w-full py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
-                   isCompleted ? 'bg-emerald-600 text-white' : 'bg-rose-500 text-white'
+                   showBuzzerAlert ? 'bg-emerald-700 text-white' : isCompleted ? 'bg-emerald-600 text-white' : 'bg-rose-500 text-white'
                 }`}
              >
-                <Power size={24} />
-                {isCompleted ? "FINISH SESSION" : "END CHARGING"}
+                {showBuzzerAlert ? <Loader2 size={24} className="animate-spin" /> : <Power size={24} />}
+                {showBuzzerAlert ? "UNLOCKING HUB..." : isCompleted ? "FINISH SESSION" : "END CHARGING"}
              </button>
              <p className="text-[8px] text-center text-gray-400 font-black uppercase tracking-[0.2em] mt-4">
-               CHARGER WILL AUTOMATICALLY UNLOCK ON COMPLETION
+               HUB WILL EMIT AN AUDIBLE BEEP UPON UNLOCKING
              </p>
          </div>
       </div>

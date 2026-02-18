@@ -35,14 +35,12 @@ export default function App() {
   };
 
   const connectBluetooth = async () => {
-    // 1. Check Browser Capability
     if (!(navigator as any).bluetooth) {
       const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
       showNotification(isIOS ? "USE BLUEFY APP ON IOS" : "BROWSER NOT SUPPORTED");
       return;
     }
 
-    // 2. Check Security Context (HTTPS)
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
       showNotification("HTTPS REQUIRED FOR BT");
       return;
@@ -72,16 +70,12 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("BLE Error Detail:", error);
-      
-      // Handle Specific BLE Error Names
       if (error.name === 'NotFoundError') {
         showNotification("DEVICE NOT FOUND/CANCELLED");
       } else if (error.name === 'SecurityError') {
         showNotification("SECURITY BLOCK (USE HTTPS)");
       } else if (error.name === 'NotAllowedError') {
         showNotification("BT PERMISSION DENIED");
-      } else if (error.message?.includes('User cancelled')) {
-        // Silently handle user cancellation
       } else {
         showNotification(`BT FAIL: ${error.message?.substring(0, 15) || "UNKNOWN"}`);
       }
@@ -97,13 +91,34 @@ export default function App() {
   };
 
   const sendBleCommand = async (command: 'UNLOCK' | 'LOCK') => {
-    if (!bleCharacteristic) return false;
+    // 1. Check if we have a characteristic and if the device is actually connected
+    if (!bleCharacteristic || !bleDevice?.gatt?.connected) {
+      showNotification("HUB NOT CONNECTED");
+      return false;
+    }
+
     try {
       const encoder = new TextEncoder();
-      await bleCharacteristic.writeValue(encoder.encode(command));
+      const data = encoder.encode(command);
+      
+      // 2. Use writeValueWithResponse for better reliability/feedback from ESP32
+      if (bleCharacteristic.writeValueWithResponse) {
+        await bleCharacteristic.writeValueWithResponse(data);
+      } else {
+        // Fallback for older browser versions
+        await bleCharacteristic.writeValue(data);
+      }
+      
       return true;
-    } catch (error) {
-      showNotification("HARDWARE CMD FAILED");
+    } catch (error: any) {
+      console.error("BLE Write Error:", error);
+      
+      // 3. Handle specific common errors
+      if (error.message?.includes('GATT operation already in progress')) {
+        showNotification("COMMAND IN PROGRESS...");
+      } else {
+        showNotification("HARDWARE CMD FAILED");
+      }
       return false;
     }
   };

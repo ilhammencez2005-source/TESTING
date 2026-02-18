@@ -15,6 +15,7 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
   STRICT RULES:
   - Keep responses concise and focused on UTP micro-mobility.
   - If users ask about the beep, explain it's the "Synergy Alert" confirming the hub is physically unlocked.
+  - Maintain a helpful, high-tech, and sustainable persona.
 
   User Context:
   - User Wallet: RM ${contextData.walletBalance.toFixed(2)}
@@ -24,14 +25,18 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: userText,
+      contents: [{ parts: [{ text: userText }] }],
       config: {
         systemInstruction: systemPrompt,
+        thinkingConfig: {
+          thinkingBudget: 4000
+        }
       }
     });
 
     return response.text || "I'm having trouble connecting. Please check your internet connection!";
   } catch (error) {
+    console.error("Gemini Error:", error);
     return "Recalibrating Synergy systems. I'll be back online in a moment!";
   }
 };

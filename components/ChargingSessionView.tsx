@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Zap, CheckCircle2, ShieldCheck, Power, Volume2, Loader2 } from 'lucide-react';
+import { Zap, CheckCircle2, ShieldCheck, Power, Monitor, Loader2 } from 'lucide-react';
 import { Session } from '../types';
 
 interface ChargingSessionViewProps {
@@ -17,7 +17,7 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
   endSession, 
   isBleConnected
 }) => {
-  const [showBuzzerAlert, setShowBuzzerAlert] = useState(false);
+  const [showLcdSync, setShowLcdSync] = useState(false);
 
   if (!activeSession) return <div className="p-10 text-center text-gray-500 font-black uppercase tracking-widest">No active session.</div>;
   
@@ -25,11 +25,11 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
   const isCompleted = activeSession.status === 'completed';
 
   const handleEndSession = () => {
-    // Visual sync with physical buzzer (2 sec)
-    setShowBuzzerAlert(true);
+    // Visual sync with physical LCD update
+    setShowLcdSync(true);
     setTimeout(() => {
       endSession();
-    }, 2000);
+    }, 1500);
   };
 
   return (
@@ -47,17 +47,17 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
          <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg border transition-colors ${isBleConnected ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-900 border-white/5'}`}>
             <ShieldCheck size={12} className="text-white" />
             <span className="text-[9px] font-black text-white uppercase tracking-widest">
-              {isBleConnected ? "HUB SECURED" : "LINK STANDBY"}
+              {isBleConnected ? "ESP32 LINKED" : "LINK STANDBY"}
             </span>
          </div>
       </div>
 
       {/* Progress Ring */}
       <div className="flex-1 flex flex-col items-center justify-center relative my-8">
-         {showBuzzerAlert && (
+         {showLcdSync && (
             <div className="absolute top-0 z-20 bg-emerald-600 text-white px-6 py-3 rounded-full flex items-center gap-3 animate-bounce shadow-2xl">
-               <Volume2 size={20} className="animate-pulse" />
-               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Synergy Alert: Unlocking...</span>
+               <Monitor size={20} className="animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-[0.2em]">LCD SYNCING...</span>
             </div>
          )}
          
@@ -92,13 +92,13 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
       <div className="space-y-4 w-full">
          <div className="grid grid-cols-2 gap-4">
             <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col items-center">
-               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</span>
+               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1 text-center leading-none">ELAPSED<br/>TIME</span>
                <span className="text-2xl font-black text-gray-800 tracking-tighter">
                {Math.floor(activeSession.timeElapsed / 60)}:{(activeSession.timeElapsed % 60).toString().padStart(2, '0')}
                </span>
             </div>
             <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col items-center">
-               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Total Cost</span>
+               <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1 text-center leading-none">ENERGY<br/>COST</span>
                <span className="text-2xl font-black text-emerald-600 tracking-tighter">
                   RM {activeSession.cost.toFixed(2)}
                </span>
@@ -108,17 +108,19 @@ export const ChargingSessionView: React.FC<ChargingSessionViewProps> = ({
          <div className="pt-2">
              <button 
                 onClick={handleEndSession} 
-                disabled={showBuzzerAlert}
+                disabled={showLcdSync}
                 className={`w-full py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
-                   showBuzzerAlert ? 'bg-emerald-700 text-white' : isCompleted ? 'bg-emerald-600 text-white' : 'bg-rose-500 text-white'
+                   showLcdSync ? 'bg-emerald-700 text-white' : isCompleted ? 'bg-emerald-600 text-white' : 'bg-rose-500 text-white'
                 }`}
              >
-                {showBuzzerAlert ? <Loader2 size={24} className="animate-spin" /> : <Power size={24} />}
-                {showBuzzerAlert ? "UNLOCKING HUB..." : isCompleted ? "FINISH SESSION" : "END CHARGING"}
+                {showLcdSync ? <Loader2 size={24} className="animate-spin" /> : <Power size={24} />}
+                {showLcdSync ? "SYNCING ESP32..." : isCompleted ? "FINISH SESSION" : "END CHARGING"}
              </button>
-             <p className="text-[8px] text-center text-gray-400 font-black uppercase tracking-[0.2em] mt-4">
-               HUB WILL EMIT AN AUDIBLE BEEP UPON UNLOCKING
-             </p>
+             <div className="mt-4 p-4 bg-gray-100 rounded-3xl border border-gray-200">
+               <p className="text-[8px] text-center text-gray-500 font-black uppercase tracking-[0.2em] leading-relaxed">
+                 CHECK HUB LCD DISPLAY (GPIO 21/22)<br/>STATUS MUST SHOW "SECURE" BEFORE DEPARTING
+               </p>
+             </div>
          </div>
       </div>
     </div>

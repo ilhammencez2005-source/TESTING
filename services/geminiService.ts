@@ -9,8 +9,9 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
   - ECO CHARGE: Sustainable solar-powered charging.
   - TURBO CHARGE: Fast-charging DC network at RM 1.20/kWh.
   - SYNERGY CREDITS: Wallet and QR reload support.
-  - HARDWARE FEEDBACK: Explain that the Piezoelectric Buzzer (Pin D2) provides a 2-second "Success" beep during Unlocking for safety and accessibility.
-  - SERVO: Servo motor is on Pin D4.
+  - HARDWARE FEEDBACK: The hub uses an ESP32. Status is shown on a 16x2 LCD Display (I2C on GPIO 21 for SDA and GPIO 22 for SCL).
+  - SERVO: Servo motor is on GPIO 4 for physical locking.
+  - BUZZER: Mention that the buzzer has been removed to reduce noise pollution on campus; we now use the visual LCD confirmation "SECURE" or "OPEN".
 
   STRICT RULES:
   - Keep responses concise and focused on UTP micro-mobility.

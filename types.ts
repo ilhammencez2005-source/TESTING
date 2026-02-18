@@ -69,9 +69,11 @@ export type ViewState = 'home' | 'booking' | 'charging' | 'assistant' | 'profile
 export interface ContextData {
   walletBalance: number;
   selectedStation: Station | null;
+  userLocation: UserLocation | null;
 }
 
 export interface Message {
   role: 'user' | 'model';
   text: string;
+  grounding?: any[];
 }

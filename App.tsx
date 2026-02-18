@@ -91,7 +91,6 @@ export default function App() {
   };
 
   const sendBleCommand = async (command: 'UNLOCK' | 'LOCK') => {
-    // 1. Check if we have a characteristic and if the device is actually connected
     if (!bleCharacteristic || !bleDevice?.gatt?.connected) {
       showNotification("HUB NOT CONNECTED");
       return false;
@@ -101,11 +100,9 @@ export default function App() {
       const encoder = new TextEncoder();
       const data = encoder.encode(command);
       
-      // 2. Use writeValueWithResponse for better reliability/feedback from ESP32
       if (bleCharacteristic.writeValueWithResponse) {
         await bleCharacteristic.writeValueWithResponse(data);
       } else {
-        // Fallback for older browser versions
         await bleCharacteristic.writeValue(data);
       }
       
@@ -113,7 +110,6 @@ export default function App() {
     } catch (error: any) {
       console.error("BLE Write Error:", error);
       
-      // 3. Handle specific common errors
       if (error.message?.includes('GATT operation already in progress')) {
         showNotification("COMMAND IN PROGRESS...");
       } else {
@@ -158,7 +154,6 @@ export default function App() {
   const startCharging = async (mode: ChargingMode, slotId: string, duration: number | 'full', preAuth: number) => {
     if (preAuth > walletBalance) return showNotification("INSUFFICIENT CREDITS");
     
-    // Automatic Hardware Lock
     const locked = await sendBleCommand('LOCK');
     if (!locked && bleCharacteristic) {
       showNotification("WARNING: HUB FAILED TO LOCK");
@@ -176,7 +171,6 @@ export default function App() {
   const endSession = async (cur = activeSession) => {
     if (!cur) return;
     
-    // Automatic Hardware Unlock
     await sendBleCommand('UNLOCK');
 
     const refund = cur.preAuthAmount - cur.cost;
@@ -258,7 +252,12 @@ export default function App() {
               onTestCommand={sendBleCommand}
             />
           )}
-          {view === 'assistant' && <GeminiAssistant onClose={() => setView('home')} contextData={{ walletBalance, selectedStation }} />}
+          {view === 'assistant' && (
+            <GeminiAssistant 
+              onClose={() => setView('home')} 
+              contextData={{ walletBalance, selectedStation, userLocation }} 
+            />
+          )}
         </main>
 
         <NavigationBar view={view} setView={setView} hasActiveSession={!!activeSession} showNotification={showNotification} />

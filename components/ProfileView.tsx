@@ -153,6 +153,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
+      {/* About Section */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] px-2">About</h3>
+        <div className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
+              <Zap size={24} />
+            </div>
+            <div>
+              <p className="font-black text-gray-900 uppercase tracking-tight">Solar Synergy</p>
+              <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ETP GROUP 17</p>
+            </div>
+          </div>
+          <p className="text-[11px] font-medium text-gray-600 leading-relaxed uppercase tracking-wide">
+            We are from <span className="font-black text-gray-900">ETP Group 17 Universiti Teknologi Petronas</span>. 
+            This app was created by <span className="font-black text-emerald-600">Ilhammencez Bin Mohd Rasyidi</span> to provide 
+            sustainable micro-mobility charging solutions.
+          </p>
+        </div>
+      </div>
+
       <div className="pt-4">
         <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.8</p>
       </div>

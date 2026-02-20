@@ -174,8 +174,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      <div className="pt-4">
-        <p className="text-[8px] text-center text-gray-300 font-bold uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.8</p>
+      <div className="pt-8 pb-12 space-y-2 opacity-50">
+        <p className="text-[8px] text-center text-gray-400 font-black uppercase tracking-[0.2em]">ETP Group 17 • Solar Synergy v1.8</p>
+        <p className="text-[7px] text-center text-gray-400 font-black uppercase tracking-[0.3em]">Created by Ilhammencez Bin Mohd Rasyidi</p>
       </div>
     </div>
   );

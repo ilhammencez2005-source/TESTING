@@ -22,6 +22,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onTestCommand
 }) => {
   const [showQr, setShowQr] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   
   const isBluetoothSupported = typeof navigator !== 'undefined' && !!(navigator as any).bluetooth;
 
@@ -156,21 +157,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* About Section */}
       <div className="space-y-4">
         <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] px-2">About</h3>
-        <div className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
-              <Zap size={24} />
+        <div 
+          onClick={() => setShowAbout(!showAbout)}
+          className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-sm cursor-pointer active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
+                <Zap size={24} />
+              </div>
+              <div>
+                <p className="font-black text-gray-900 uppercase tracking-tight">Solar Synergy</p>
+                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ETP GROUP 17</p>
+              </div>
             </div>
-            <div>
-              <p className="font-black text-gray-900 uppercase tracking-tight">Solar Synergy</p>
-              <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ETP GROUP 17</p>
-            </div>
+            <ChevronRight size={20} className={`text-gray-300 transition-transform duration-300 ${showAbout ? 'rotate-90' : ''}`} />
           </div>
-          <p className="text-[11px] font-medium text-gray-600 leading-relaxed uppercase tracking-wide">
-            We are from <span className="font-black text-gray-900">ETP Group 17 Universiti Teknologi Petronas</span>. 
-            This app was created by <span className="font-black text-emerald-600">Ilhammencez Bin Mohd Rasyidi</span> to provide 
-            sustainable micro-mobility charging solutions.
-          </p>
+          
+          {showAbout && (
+            <div className="mt-6 pt-6 border-t border-gray-50 animate-fade-in-down">
+              <p className="text-[11px] font-medium text-gray-600 leading-relaxed uppercase tracking-wide mb-4">
+                We are from <span className="font-black text-gray-900">ETP Group 17 Universiti Teknologi Petronas</span>.
+              </p>
+              <p className="text-[11px] font-medium text-gray-500 leading-relaxed uppercase tracking-wide">
+                Solar Synergy is a sustainable micro-mobility charging platform designed for the UTP campus. 
+                Our project leverages solar energy to provide eco-friendly charging for electric scooters 
+                and bicycles, promoting a greener and smarter campus environment through innovative 
+                hardware integration and real-time synergy assistance.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

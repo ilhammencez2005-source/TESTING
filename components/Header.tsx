@@ -1,14 +1,13 @@
 
 import React from 'react';
-import { User, Wifi, WifiOff } from 'lucide-react';
+import { User } from 'lucide-react';
 
 interface HeaderProps {
   walletBalance: number;
   onProfileClick: () => void;
-  isCloudConnected?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ walletBalance, onProfileClick, isCloudConnected = true }) => (
+export const Header: React.FC<HeaderProps> = ({ walletBalance, onProfileClick }) => (
   <div className="flex justify-between items-center px-4 py-3 bg-white shadow-sm shrink-0 border-b border-gray-200 z-10">
     <div className="flex items-center gap-3">
       <div className="h-10 w-12 flex items-center justify-center relative">
@@ -17,18 +16,10 @@ export const Header: React.FC<HeaderProps> = ({ walletBalance, onProfileClick, i
            alt="UTP" 
            className="h-full w-full object-contain"
          />
-         {!isCloudConnected && (
-           <div className="absolute -top-1 -right-1 bg-rose-500 text-white p-0.5 rounded-full border-2 border-white">
-             <WifiOff size={8} />
-           </div>
-         )}
       </div>
       <div>
         <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-none">Solar Synergy</h1>
-        <div className="flex items-center gap-1.5">
-          <p className="text-[10px] text-emerald-600 font-bold tracking-wider">UTP MICROMOBILITY</p>
-          <div className={`w-1 h-1 rounded-full ${isCloudConnected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}></div>
-        </div>
+        <p className="text-[10px] text-emerald-600 font-bold tracking-wider">UTP MICROMOBILITY</p>
         <p className="text-[9px] text-gray-400 font-bold tracking-wider mt-0.5">ETP GROUP 17</p>
       </div>
     </div>

@@ -28,29 +28,6 @@ export default function App() {
   const [bleDevice, setBleDevice] = useState<any | null>(null);
   const [bleCharacteristic, setBleCharacteristic] = useState<any | null>(null);
   const [isBleConnecting, setIsBleConnecting] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
-  const [isCloudConnected, setIsCloudConnected] = useState(true);
-
-  const sendNotification = (title: string, body: string) => {
-    // In-app notification
-    showNotification(`${title.toUpperCase()}: ${body.toUpperCase()}`);
-
-    // System notification
-    if (notificationPermission === 'granted') {
-      try {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification(title, {
-            body,
-            icon: 'https://lh3.googleusercontent.com/d/1JB1msv8nSU3u--ywu_bAhKEhKar-94Vb',
-            vibrate: [200, 100, 200],
-            tag: 'solar-synergy-update'
-          });
-        });
-      } catch (e) {
-        new Notification(title, { body });
-      }
-    }
-  };
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -83,18 +60,18 @@ export default function App() {
       if (characteristic) {
         setBleDevice(device);
         setBleCharacteristic(characteristic);
-        sendNotification("Hub Connected", "Your charging hub is now paired and ready.");
+        showNotification("HUB PAIRED SUCCESSFULLY");
         
         device.addEventListener('gattserverdisconnected', () => {
           setBleDevice(null);
           setBleCharacteristic(null);
-          sendNotification("Hub Disconnected", "Connection to the charging hub was lost.");
+          showNotification("HUB DISCONNECTED");
         });
       }
     } catch (error: any) {
       console.error("BLE Error Detail:", error);
       if (error.name === 'NotFoundError') {
-        sendNotification("Connection Cancelled", "Hub pairing was not completed.");
+        showNotification("DEVICE NOT FOUND/CANCELLED");
       } else if (error.name === 'SecurityError') {
         showNotification("SECURITY BLOCK (USE HTTPS)");
       } else if (error.name === 'NotAllowedError') {
@@ -143,33 +120,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const checkConnectivity = async () => {
-      try {
-        const res = await fetch('/api/status');
-        if (!res.ok) throw new Error();
-        if (!isCloudConnected) {
-          setIsCloudConnected(true);
-          sendNotification("System Online", "Cloud bridge connectivity restored.");
-        }
-      } catch (e) {
-        if (isCloudConnected) {
-          setIsCloudConnected(false);
-          sendNotification("Connectivity Issue", "Lost connection to the cloud bridge. Real-time sync may be delayed.");
-        }
-      }
-    };
-
-    const interval = setInterval(checkConnectivity, 15000);
-    return () => clearInterval(interval);
-  }, [isCloudConnected]);
-
-  useEffect(() => {
-    if ("Notification" in window) {
-      Notification.requestPermission().then(permission => {
-        setNotificationPermission(permission);
-      });
-    }
-
     if ("geolocation" in navigator) {
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
@@ -196,13 +146,7 @@ export default function App() {
           const increment = prev.mode === 'fast' ? 1.5 : 0.8;
           const newLevel = prev.chargeLevel + increment;
           
-          // Notifications for milestones
-          if (prev.chargeLevel < 80 && newLevel >= 80) {
-            sendNotification("Charging Update", "Battery reached 80%. Optimal for longevity.");
-          }
-          
           if (newLevel >= 100) { 
-            sendNotification("Charging Complete", "Your vehicle is fully charged.");
             endSession(prev); 
             return null; 
           }
@@ -220,11 +164,10 @@ export default function App() {
     
     const locked = await sendBleCommand('LOCK');
     if (!locked && bleCharacteristic) {
-      sendNotification("Hub Issue", "Failed to lock the charging hub. Please check connection.");
+      showNotification("WARNING: HUB FAILED TO LOCK");
     }
     
     setWalletBalance(p => p - preAuth);
-    sendNotification("Charging Started", `Session active at ${selectedStation!.name}`);
     setActiveSession({ 
       station: selectedStation!, 
       mode, slotId, startTime: new Date(), status: 'charging', chargeLevel: 24, cost: 0, preAuthAmount: preAuth, durationLimit: duration, timeElapsed: 0, 
@@ -278,11 +221,7 @@ export default function App() {
         
         {view !== 'charging' && view !== 'assistant' && (
           <div className="shrink-0 w-full bg-white shadow-sm border-b border-gray-100 relative z-50">
-             <Header 
-               walletBalance={walletBalance} 
-               onProfileClick={() => setView('profile')} 
-               isCloudConnected={isCloudConnected} 
-             />
+             <Header walletBalance={walletBalance} onProfileClick={() => setView('profile')} />
           </div>
         )}
 

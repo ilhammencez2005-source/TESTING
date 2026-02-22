@@ -1,21 +1,20 @@
+
 {
   "name": "solar-synergy",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.38.1",
     "@google/genai": "^1.38.0",
     "lucide-react": "^0.454.0",
-    "next": "^16.1.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

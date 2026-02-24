@@ -25,9 +25,30 @@ export default function App() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [chargingHistory, setChargingHistory] = useState<ChargingHistoryItem[]>([]);
   
+  const [stations, setStations] = useState<Station[]>(STATIONS);
   const [bleDevice, setBleDevice] = useState<any | null>(null);
   const [bleCharacteristic, setBleCharacteristic] = useState<any | null>(null);
   const [isBleConnecting, setIsBleConnecting] = useState(false);
+
+  const handleOccupancyUpdate = (event: any) => {
+    const value = new TextDecoder().decode(event.target.value);
+    console.log("BLE Notification Received:", value);
+    
+    if (value.includes("OCCUPIED") || value.includes("AVAILABLE")) {
+      const isOccupied = value.includes("OCCUPIED");
+      setStations(prev => prev.map(s => {
+        if (s.name === "Village 4") {
+          return {
+            ...s,
+            status: isOccupied ? "Occupied" : "Active",
+            slots: isOccupied ? 0 : 1
+          };
+        }
+        return s;
+      }));
+      showNotification(isOccupied ? "VILLAGE 4 PORT OCCUPIED" : "VILLAGE 4 PORT AVAILABLE");
+    }
+  };
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -60,6 +81,11 @@ export default function App() {
       if (characteristic) {
         setBleDevice(device);
         setBleCharacteristic(characteristic);
+        
+        // Enable Notifications for IR Sensor
+        await characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', handleOccupancyUpdate);
+        
         showNotification("HUB PAIRED SUCCESSFULLY");
         
         device.addEventListener('gattserverdisconnected', () => {
@@ -230,7 +256,7 @@ export default function App() {
             <HomeView 
               userLocation={userLocation} 
               handleLocateMe={() => {}} 
-              stations={STATIONS} 
+              stations={stations} 
               onBookStation={(s) => { setSelectedStation(s); setView('booking'); }} 
               onPrebook={(s) => { setSelectedStation(s); setView('booking'); }} 
             />

@@ -92,21 +92,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
 
               {showQr && (
-                <div className="mt-6 bg-white rounded-3xl p-6 text-center animate-fade-in-down border border-emerald-100 shadow-xl overflow-hidden">
-                  <div className="mb-4 flex flex-col items-center">
-                    <div className="bg-pink-600 px-3 py-1 rounded-md mb-2">
-                      <span className="text-white font-black text-[10px] uppercase">DuitNow QR</span>
-                    </div>
-                    <div className="w-56 h-56 bg-white rounded-2xl mx-auto flex items-center justify-center border-4 border-pink-600 p-2 shadow-inner">
+                <div className="mt-6 bg-white rounded-[2.5rem] p-6 text-center animate-fade-in-down border border-pink-100 shadow-xl overflow-hidden relative">
+                  {/* DuitNow Branding Header */}
+                  <div className="flex flex-col items-center">
+                    {/* QR Image Container */}
+                    <div className="w-full aspect-square bg-white rounded-3xl mx-auto flex items-center justify-center overflow-hidden shadow-inner relative border-4 border-[#ED008C]">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=DuitNow-IlhammencezBinMohdRasyidi&color=db2777`} 
+                        src="https://r2.erweima.ai/i/pY7mG0SGRm2vH_v6_v6.png" 
                         alt="DuitNow QR" 
-                        className="w-full h-full object-contain" 
+                        className="w-full h-full object-contain p-2" 
+                        onError={(e) => {
+                          // If the specific image fails, fallback to a generated one with the correct data
+                          (e.target as HTMLImageElement).src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=DuitNow-IlhammencezBinMohdRasyidi&color=ED008C";
+                        }}
                       />
                     </div>
                   </div>
-                  <p className="text-gray-900 font-black text-[11px] uppercase tracking-widest">SCAN TO TOP UP</p>
-                  <p className="text-gray-400 text-[9px] mt-1 uppercase font-bold tracking-wider px-2">ILHAMMENCEZ BIN MOHD RASYIDI</p>
+                  
+                  <div className="mt-4 space-y-1">
+                    <p className="text-gray-900 font-black text-[11px] uppercase tracking-widest">SCAN TO TOP UP</p>
+                    <p className="text-[#ED008C] text-[9px] uppercase font-bold tracking-wider px-2">ILHAMMENCEZ BIN MOHD RASYIDI</p>
+                  </div>
                 </div>
               )}
             </div>

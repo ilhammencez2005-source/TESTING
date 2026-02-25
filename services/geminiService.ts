@@ -24,7 +24,7 @@ export const generateGeminiResponse = async (userText: string, contextData: Cont
   - Current Lat/Lng: ${contextData.userLocation ? `${contextData.userLocation.lat}, ${contextData.userLocation.lng}` : 'Unknown'}`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [{ parts: [{ text: userText }] }],

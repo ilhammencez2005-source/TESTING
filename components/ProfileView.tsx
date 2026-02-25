@@ -92,26 +92,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
 
               {showQr && (
-                <div className="mt-6 bg-white rounded-[2.5rem] p-6 text-center animate-fade-in-down border border-pink-100 shadow-xl overflow-hidden relative">
-                  {/* DuitNow Branding Header */}
-                  <div className="flex flex-col items-center">
-                    {/* QR Image Container */}
-                    <div className="w-full aspect-square bg-white rounded-3xl mx-auto flex items-center justify-center overflow-hidden shadow-inner relative border-4 border-[#ED008C]">
+                <div className="mt-8 bg-white rounded-[3rem] p-2 text-center animate-fade-in-down shadow-2xl overflow-hidden relative border border-pink-50 max-w-[280px] mx-auto">
+                  <div className="border-[2px] border-[#ED008C] rounded-[2.5rem] p-3 bg-white">
+                    <div className="aspect-square flex items-center justify-center overflow-hidden">
                       <img 
-                        src="https://r2.erweima.ai/i/pY7mG0SGRm2vH_v6_v6.png" 
+                        src="https://lh3.googleusercontent.com/d/1usUmakfqoX6yrVG_BQucVdmQx4jDpxoO" 
                         alt="DuitNow QR" 
-                        className="w-full h-full object-contain p-2" 
+                        className="w-full h-full object-contain" 
                         onError={(e) => {
-                          // If the specific image fails, fallback to a generated one with the correct data
-                          (e.target as HTMLImageElement).src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=DuitNow-IlhammencezBinMohdRasyidi&color=ED008C";
+                          const target = e.target as HTMLImageElement;
+                          if (!target.src.includes("drive.google.com")) {
+                            target.src = "https://drive.google.com/uc?id=1usUmakfqoX6yrVG_BQucVdmQx4jDpxoO";
+                          }
                         }}
                       />
                     </div>
                   </div>
                   
-                  <div className="mt-4 space-y-1">
-                    <p className="text-gray-900 font-black text-[11px] uppercase tracking-widest">SCAN TO TOP UP</p>
-                    <p className="text-[#ED008C] text-[9px] uppercase font-bold tracking-wider px-2">ILHAMMENCEZ BIN MOHD RASYIDI</p>
+                  <div className="py-4 space-y-1">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className="h-px w-6 bg-pink-100"></div>
+                      <p className="text-gray-900 font-black text-[9px] uppercase tracking-[0.2em]">Top Up Wallet</p>
+                      <div className="h-px w-6 bg-pink-100"></div>
+                    </div>
+                    <p className="text-[#ED008C] text-[8px] uppercase font-black tracking-widest px-4">ILHAMMENCEZ BIN MOHD RASYIDI</p>
                   </div>
                 </div>
               )}

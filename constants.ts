@@ -4,7 +4,7 @@ import { Station, ChargingHistoryItem } from './types';
 export const STATIONS: Station[] = [
   { 
     id: 1, 
-    name: "Village 3C", 
+    name: "Village 3", 
     address: "9XP8+RH, 31750, Perak", 
     distance: "120m", 
     slots: 2, 
@@ -22,13 +22,13 @@ export const STATIONS: Station[] = [
   { 
     id: 2, 
     name: "Village 4", 
-    address: "Universiti Teknologi PETRONAS, Village 4",
+    address: "9XQ8+48 Bota, Perak",
     distance: "450m", 
     slots: 0, 
     totalSlots: 2,
     type: "Type 2 (11.0kW)",
     status: "Occupied",
-    coordinates: "4.3880,100.9750",
+    coordinates: "4.3852,100.9702",
     operatingHours: "7:00 AM - 11:00 PM",
     features: ["Security Guard", "Vending Machine"],
     reviews: [
